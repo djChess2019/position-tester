@@ -156,7 +156,7 @@ def runTactics(epdFile, logFile, lc0_cmd, optString, weightPath, weight, nodeNum
 		total += 1
 				
 		if noisy and total % progressInterval == 0:
-			sys.stderr.write(str(right) + "/" + str(total) + " ")
+			sys.stderr.write("\n" + str(right) + "/" + str(total) + " = " + str(100*right/total) + "%")
 			sys.stderr.flush()
 			
 	engine.quit()
