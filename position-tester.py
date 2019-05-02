@@ -4,15 +4,19 @@ import numpy as np
 import chess
 import chess.uci
 import json
+import datetime
+from datetime import timedelta
+
 
 # TODO make proper options
+# TODO add nodes counter to log
 # TODO should add target file to log
 
 # NOTE: --history-fill=always is hard coded - no need for having it set in .json
 
 noisy = True
-progressInterval = 1000
-logBuffer = 1000
+progressInterval = 5
+logBuffer = 10000
 
 # file with a simple list of networks to test, 1 per line. path taken from json
 netsFileName = sys.argv[1]
@@ -57,7 +61,7 @@ optList = []
 for pkey in pkeys:
 	if params[pkey] == "":
 		optList.append("--" + pkey)
-	else:
+	else: 
 		optList.append("--" + pkey + "=" + str(params[pkey]))
 optString = " ".join(optList)
 
@@ -90,6 +94,7 @@ def writeLog(logFile, logList):
 # returns (success, total, list of failures)
 # either nodeNum or moveTime should be provided but not both
 def runTactics(epdFile, logFile, lc0_cmd, optString, weightPath, weight, nodeNum=None, moveTime=None):
+	
 	logLines = ["result; engine_move; iccf_move(s); nodes; problem_id; network; side; piece_count; evaluation"]
 	lc0_cmd += " --weights=" + weightPath + weight + " --history-fill=always " + optString
 	if nodeNum == None:
@@ -121,6 +126,7 @@ def runTactics(epdFile, logFile, lc0_cmd, optString, weightPath, weight, nodeNum
 		engine.ucinewgame()
 		engine.position(board)
 		pieceNum = len(board.piece_map())
+
 		if nodeNum == None:
 			move, pondermove = engine.go(movetime=moveTime)
 		else:
@@ -135,28 +141,39 @@ def runTactics(epdFile, logFile, lc0_cmd, optString, weightPath, weight, nodeNum
 		else: evalstr = "no_score"
 		if move in best_moves:
 			right += 1
-			logLines.append("; ".join(["agree",str(move),bmstr,str(mnodes),idfield,weight,side,str(pieceNum),evalstr]))
+			logLines.append("; ".join(["1",str(move),bmstr,str(mnodes),idfield,weight,side,str(pieceNum),evalstr]))
+
 		else:
 			pv = info_handler.info["pv"][1]  # a list of the Move objects from the pv
 			pvstrl = []
 			for i in range(min(len(pv),6)):
 				pvstrl.append(str(pv[i]))
 			mvstr = " ".join(pvstrl)
+			#mscore = info_handler.info["score"][1].cp
 			if mscore != None:
 				evalstr = "%+.2f" % (mscore/100.0)
 				mvstr += " " + "%+.2f" % (mscore/100.0)  # the score in pawns with sign
 			else: 
 				evalstr = "no_score"
-				mvstr += " no_score"			
-			logLines.append("; ".join(["disagree",str(move),bmstr,str(mnodes),idfield,weight,side,str(pieceNum),evalstr]))		
-		
+				mvstr += " no_score"
+			logLines.append("; ".join(["0",str(move),bmstr,str(mnodes),idfield,weight,side,str(pieceNum),evalstr]))		
+
 		if len(logLines) > logBuffer-1:
+			
+
 			writeLog(logFile, logLines)
 			logLines = []
 		total += 1
 				
 		if noisy and total % progressInterval == 0:
-			sys.stderr.write(str(right) + "/" + str(total) + " ")
+		
+			elapsedTime = datetime.datetime.now() - startTime
+			problems = len(epdfl)
+			timePerProblem = elapsedTime/total
+			expectedEndTime =  ((timePerProblem * problems ) + startTime).isoformat(' ','minutes')
+			percentAgree = str(round(right/total*100,2))
+
+			sys.stderr.write( "\r" + str(right) + "/" +str(total) + " Agree:" + percentAgree + "%  Expected end of this run:" + expectedEndTime + "            ")
 			sys.stderr.flush()
 			
 	engine.quit()
@@ -170,15 +187,18 @@ def runTactics(epdFile, logFile, lc0_cmd, optString, weightPath, weight, nodeNum
 runTot = len(weights)
 runNum = 1
 for weight in weights:  # loop over network weights, running problem set for each
+	startTime = datetime.datetime.now()
 	if nodes == None:
 		appendix = str(time) + " msec"
 	else:
 		appendix = str(nodes) + " nodes"
+
 	sys.stdout.write("\nRun " + str(runNum) + " of " + str(runTot) + ": " + weight + ", " + appendix + "\n")
 	sys.stdout.flush()
 	if nodes == None:
 		agreed, total, nodesUsed = runTactics(epdPath, logFile, lc0_cmd, optString, weightPath, weight, moveTime=time)		
 		outv = [weight,str(time), str(int(round(np.mean(nodesUsed)))), str(agreed),str(total),"%.3f" % ((100.0*agreed)/total)]		
+
 	else:
 		agreed, total, nodesUsed = runTactics(epdPath, logFile, lc0_cmd, optString, weightPath, weight, nodeNum=nodes)		
 		outv = [weight,str(nodes), str(int(round(np.mean(nodesUsed)))), str(agreed),str(total),"%.3f" % ((100.0*agreed)/total)]
