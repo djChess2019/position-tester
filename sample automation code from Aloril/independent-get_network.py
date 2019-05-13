@@ -17,10 +17,9 @@ if __name__=="__main__":
     #TEST_SIZE = "20"
     #TEST_STR = "test%%ib%s-" % (TEST_SIZE,)
     #WEIGHT_PATTERN = "weights_" + TEST_STR + "%i.pb.gz"
-    min_id = 
-    NETWORKS = SERVER + "/networks"
+    NETWORKS = os.pardir + "/networks"
     last_downloaded = ""
-    min_id = int(sys.argv[1])
+    min_id = 42300
     start_flag = True
     while True:
         found = False

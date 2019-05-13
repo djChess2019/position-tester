@@ -1,7 +1,7 @@
 {
-    "EPD" : "samplePositionFile.txt",
-	"Lc0" : "~/lc0/lc0.exe",
-	"weights_path" : "~/position-tester/",
+    "EPD" : "position-tester/samplePositionFile.txt",
+	"Lc0" : "lc0/lc0.exe",
+	"weights_path" : "position-tester/",
 	"threads" : 2,
 	"minibatch-size" :256,
 	"cpuct" : 3.0,
