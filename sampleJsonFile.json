@@ -1,7 +1,7 @@
 {
-    "EPD" : "position-tester/samplePositionFile.txt",
-	"Lc0" : "lc0/lc0.exe",
-	"weights_path" : "position-tester/",
+    "EPD" : "C:\\d\\dev\\position-tester\\samplePositonFile.txt",
+	"Lc0" : "F:/leela/lc0-v0.20.2-t40B/lc0.exe",
+	"weights_path" : "../lc0nets/",
 	"threads" : 2,
 	"minibatch-size" :256,
 	"cpuct" : 3.0,
