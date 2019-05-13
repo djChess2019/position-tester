@@ -123,3 +123,5 @@ dmypy.json
 .pyre/
 .pyre/
 .vscode/symbols.json
+sample.log
+sampleResults.txt
