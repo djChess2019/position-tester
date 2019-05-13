@@ -6,7 +6,7 @@ import chess.uci
 import json
 import datetime
 from datetime import timedelta
-
+from ptParams import *
 
 # TODO make proper options
 # TODO add nodes counter to log
@@ -14,18 +14,7 @@ from datetime import timedelta
 
 # NOTE: --history-fill=always is hard coded - no need for having it set in .json
 
-noisy = True
-progressInterval = 5
-logBuffer = 10000
 
-# file with a simple list of networks to test, 1 per line. path taken from json
-netsFileName = sys.argv[1]
-# configuration file for paths and Leela parameters
-jsonFileName = sys.argv[2]
-# the output file will have a bare bones summary of parameters and success rate
-outFileName = sys.argv[3]
-# the log file will contain a simple summary of failed problems
-logFileName = sys.argv[4]
 
 logFile = open(logFileName, "a")
 appendingOut = os.path.exists(outFileName)
@@ -34,6 +23,7 @@ outFile = open(outFileName,"a")
 
 # set up command and paths from the json file, removing them as you go
 params = json.load(open(jsonFileName))
+
 epdPath = params["EPD"]
 del params["EPD"] 
 lc0_cmd = params["Lc0"]
