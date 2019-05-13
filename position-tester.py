@@ -24,8 +24,7 @@ outFile = open(outFileName,"a")
 # set up command and paths from the json file, removing them as you go
 params = json.load(open(jsonFileName))
 
-epdPath = params["EPD"]
-del params["EPD"] 
+
 lc0_cmd = params["Lc0"]
 del params["Lc0"]
 weightPath = params["weights_path"]

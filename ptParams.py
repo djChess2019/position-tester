@@ -1,15 +1,15 @@
 # file with a simple list of networks to test, 1 per line. path taken from json
-netsFileName = "sampleNetworkList.txt"
+netsFileName = "./supportingFiles/sampleNetworkList.txt"
 # configuration file for paths and Leela parameters
-jsonFileName = "sampleJsonFile.json"
+jsonFileName = "./engineSetup/sampleJsonFile.json"
 # the output file will have a bare bones summary of parameters and success rate
-outFileName = "sampleResults.txt"
+outFileName = "./supportingFiles/sampleResults.txt"
 # the log file will contain a simple summary of failed problems
-logFileName = "sample.log"
+logFileName = "./supportingFiles/sample.log"
 #do you even want a progress indicator
 noisy = True
 progressInterval = 5
 #how often to write out the the log file
 logBuffer = 1000
 # NOTE: --history-fill=always is hard coded - no need for having it set in .json
-# this was a json file, now I'm just setting this up in python.
+epdPath = "./positionSets/samplePositonFile.txt"

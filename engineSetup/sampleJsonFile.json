@@ -1,5 +1,4 @@
-{
-    "EPD" : "C:\\d\\dev\\position-tester\\samplePositonFile.txt",
+{    
 	"Lc0" : "F:/leela/lc0-v0.20.2-t40B/lc0.exe",
 	"weights_path" : "../lc0nets/",
 	"threads" : 2,
