@@ -10,6 +10,6 @@ logFileName = "./supportingFiles/sample.log"
 noisy = True
 progressInterval = 5
 #how often to write out the the log file
-logBuffer = 1000
+logBufferSize = 1000
 # NOTE: --history-fill=always is hard coded - no need for having it set in .json
 epdPath = "./positionSets/samplePositonFile.txt"
