@@ -1,9 +1,11 @@
 import sys
+import re
 import chess
-import chess.uci
+import chess.engine
 from ptParams import *
 import json
 import datetime
+
 params = json.load(open(jsonFileName))
 lc0_cmd = params["Lc0"]
 del params["Lc0"]
@@ -29,18 +31,25 @@ def writeLog(logFile, logList):
 def runTactics(epdPath, logFile, lc0_cmd, optString, weightPath, weight, nodeNum):
 	startTime = datetime.datetime.now()
 	logLines = ["result; engine_move; iccf_move(s); nodes; problem_id; network; side; piece_count; evaluation"]
-	lc0_cmd += " --weights=" + weightPath + weight + " --history-fill=always " + optString
-	# if nodeNum == None:
-	# 	appendix = " msec=" + str(time)
-	# else:
+	#no options right now
+	# lc0_cmd += " --weights=" + weightPath + weight + " --history-fill=always " + optString
+
 	appendix = " nodes=" + str(nodeNum)
 	logFile.write("#### " + lc0_cmd + appendix + "\n")
 	sys.stderr.write(lc0_cmd + appendix + "\n")
-	engine = chess.uci.popen_engine(lc0_cmd)
-	info_handler = chess.uci.InfoHandler()
-	engine.info_handlers.append(info_handler)  # there is an empty list of these on engine creation
-	board = chess.Board()
-	engine.ucinewgame()
+	#engine = chess.uci.popen_engine(lc0_cmd)
+	engine = chess.engine.SimpleEngine.popen_uci(lc0_cmd)
+	#info_handler = chess.uci.InfoHandler()
+	#engine.info_handlers.append(info_handler)  # there is an empty list of these on engine creation
+
+
+
+	#engine.ucinewgame()
+
+# this epdf file is now called position file and used fen not epd
+# and it can't be here. This method is to run one positon!
+# the engine options are set with configure()
+
 	epdf = open(epdPath)
 	epdfLines = epdf.readlines()
 	epdf.close()
@@ -52,13 +61,14 @@ def runTactics(epdPath, logFile, lc0_cmd, optString, weightPath, weight, nodeNum
 	right = 0; total = 0; nodesUsed = []
 	for line in epdfl:
 		fields = line.split(";")
-		epdfield = fields[0]
-		side = fields[0].split()[1]
-		idfield = fields[1].strip()
-		epd = board.set_epd(epdfield)
-		engine.ucinewgame()
-		engine.position(board)
-		pieceNum = len(board.piece_map())
+		epdfield = fields[0].strip()
+		#will use match to keep bm but for now just remove it
+		epdfield = re.sub(' bm .*','',epdfield)
+	
+
+		#epd = board.set_epd(epdfield)
+		board = chess.Board(epdfield)
+		info = engine.analyse(board, chess.engine.Limit(nodes=100))
 		move, pondermove = engine.go(nodes=nodeNum)  # Move objects
 		pv = info_handler.info["pv"][1]
 		mnodes = info_handler.info["nodes"] # mnodes is an integer
@@ -94,7 +104,7 @@ def runTactics(epdPath, logFile, lc0_cmd, optString, weightPath, weight, nodeNum
 			logLines = []
 		total += 1
 				
-		if noisy and total % progressInterval == 0:
+		if  total % progressInterval == 0:
 		
 			elapsedTime = datetime.datetime.now() - startTime
 			problems = len(epdfl)

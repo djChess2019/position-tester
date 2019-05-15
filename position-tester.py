@@ -1,19 +1,14 @@
 import sys
 import os
 import numpy as np
-import chess
-import chess.uci
 import json
-import datetime
-from datetime import timedelta
-from ptParams import *
 from runTactics import *
-# TODO make proper options
+# TODO make proper options6
 # TODO add nodes counter to log
 # TODO should add target file to log
 
 # NOTE: --history-fill=always is hard coded - no need for having it set in .json
-
+params = json.load(open(jsonFileName))
 
 
 logFile = open(logFileName, "a")
@@ -24,8 +19,8 @@ outFile = open(outFileName,"a")
 # set up command and paths from the json file, removing them as you go
 params = json.load(open(jsonFileName))
 weightPath = params["weights_path"]
-del params["weights_path"]
-lc0_cmd = params["Lc0"]
+
+
 del params["Lc0"]
 nodes = None
 if "nodes" in params:

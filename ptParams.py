@@ -7,7 +7,7 @@ outFileName = "./supportingFiles/sampleResults.txt"
 # the log file will contain a simple summary of failed problems
 logFileName = "./supportingFiles/sample.log"
 #do you even want a progress indicator
-noisy = True
+
 progressInterval = 5
 #how often to write out the the log file
 logBufferSize = 1000
