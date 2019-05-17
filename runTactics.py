@@ -39,6 +39,7 @@ def runTactics(epdPath, logFile, lc0_cmd, optString, weightPath, weight, nodeNum
 	sys.stderr.write(lc0_cmd + appendix + "\n")
 	#engine = chess.uci.popen_engine(lc0_cmd)
 	engine = chess.engine.SimpleEngine.popen_uci(lc0_cmd)
+	#engine.configure({hash:2000})
 	#info_handler = chess.uci.InfoHandler()
 	#engine.info_handlers.append(info_handler)  # there is an empty list of these on engine creation
 
@@ -59,16 +60,27 @@ def runTactics(epdPath, logFile, lc0_cmd, optString, weightPath, weight, nodeNum
 			epdfl.append(eline)
 	sys.stderr.write("\n" + str(len(epdfl)) + " problems... ")
 	right = 0; total = 0; nodesUsed = []
+	info2 =  chess.engine.AnalysisResult()
 	for line in epdfl:
 		fields = line.split(";")
 		epdfield = fields[0].strip()
 		#will use match to keep bm but for now just remove it
 		epdfield = re.sub(' bm .*','',epdfield)
-	
-
-		#epd = board.set_epd(epdfield)
+		multipv = 2
+		engine = chess.engine.SimpleEngine.popen_uci(lc0_cmd)
 		board = chess.Board(epdfield)
-		info = engine.analyse(board, chess.engine.Limit(nodes=100))
+		with engine.analysis(board) as analysis:
+			for info in analysis.multipv:
+				print(info.get("score"), info.get("pv"))
+
+				# Unusual stop condition.
+				if info.get("nodes", 0) > 30000:
+					print(board)
+					info2= info
+					break
+		engine.quit()
+#		info = engine.analyse(board, chess.engine.Limit(nodes=100))
+		continue
 		move, pondermove = engine.go(nodes=nodeNum)  # Move objects
 		pv = info_handler.info["pv"][1]
 		mnodes = info_handler.info["nodes"] # mnodes is an integer
