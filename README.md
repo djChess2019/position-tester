@@ -1,5 +1,5 @@
 # position-tester
-Prepare a set of positions and see how well your engine of choice performs. 
+Prepare a set of positions and see how well your chess engine of choice performs. 
 
 #### Data Source
 ICCF data: GM correspondence chess positions

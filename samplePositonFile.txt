@@ -1,0 +1,6 @@
+ r1r3k1/1p4p1/5p1p/PPpnp3/8/3P2P1/1B3P1P/R1R3K1 b - - bm b6 ; 50382
+ 8/p4pk1/4rb2/B7/2R4P/1P4P1/nqQ2P2/6K1 b - - bm Bd4 ; 40213
+ 3rr1k1/1pp3p1/p3p2p/n2p4/3PP3/2R2N1P/PP3PP1/4R1K1 b - - bm Nc6 ; 23480
+ r4kr1/2pb4/2pp1B1p/P4N2/1P2P3/8/2P2n1P/2K1RB2 b - - bm Bxf5 ; 61024
+ 1r3k2/6pp/2Rp4/1p1Pb1K1/1P5P/2P5/4B3/8 b - - bm Bf6+ ; 3961
+ r1bqk2r/pppp1ppp/8/4P3/1bPQn3/2N5/PP3PPP/R1B1KB1R b KQkq - bm Nxc3 ; 48055

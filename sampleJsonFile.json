@@ -1,0 +1,10 @@
+{
+    "EPD" : "samplePositionFile.txt",
+	"Lc0" : "~/lc0/lc0.exe",
+	"weights_path" : "~/position-tester/",
+	"threads" : 2,
+	"minibatch-size" :256,
+	"cpuct" : 3.0,
+	"move-overhead" : 1,
+	"nodes" : 1
+}
