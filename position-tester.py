@@ -1,41 +1,21 @@
 import sys
 import os
 import numpy as np
-import json
-from runTactics import *
-# TODO make proper options6
-# TODO add nodes counter to log
-# TODO should add target file to log
+from runTactics import*
 
 # NOTE: --history-fill=always is hard coded - no need for having it set in .json
-params = json.load(open(jsonFileName))
-
-
-logFile = open(logFileName, "a")
-appendingOut = os.path.exists(outFileName)
-outFile = open(outFileName,"a")
+# logFile = open(logFileName, "a")
+# appendingOut = os.path.exists(outFileName)
+# outFile = open(outFileName,"a")
 
 
 # set up command and paths from the json file, removing them as you go
 params = json.load(open(jsonFileName))
 weightPath = params["weights_path"]
-
-
-del params["Lc0"]
-nodes = None
-if "nodes" in params:
-	nodes = params["nodes"]
-	del params["nodes"]
-else:
-	
-	time = params["time"]
-	del params["time"]
-
+nodes = params["nodes"]
+del params["nodes"]
 if not appendingOut:  # write a header if this is a new output file
-	if nodes == None:
-		outFile.write("network\tmsec\tavg_nodes\tagreed\ttotal\tpercent\n")
-	else:
-		outFile.write("network\treq_nodes\tavg_nodes\tagreed\ttotal\tpercent\n")
+	outFile.write("network\treq_nodes\tavg_nodes\tagreed\ttotal\tpercent\n")
 	outFile.flush()
 		
 # get the rest of the options in lexicograph order
@@ -75,7 +55,7 @@ for weight in weights:  # loop over network weights, running problem set for eac
 
 	sys.stdout.write("\nRun " + str(runNum) + " of " + str(runTot) + ": " + weight + ", " + appendix + "\n")
 	sys.stdout.flush()
-	agreed, total, nodesUsed = runTactics(epdPath, logFile, lc0_cmd, optString, weightPath, weight, nodeNum=nodes)		
+	agreed, total, nodesUsed = runTactics(epdPath, logFile, lc0_cmd, optString, weightPath, weight, nodeNum=nodes)
 	outv = [weight,str(nodes), str(int(round(np.mean(nodesUsed)))), str(agreed),str(total),"%.3f" % ((100.0*agreed)/total)]
 	outFile.write("\t".join(outv) + "\n")
 	outFile.flush()

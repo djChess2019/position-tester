@@ -1,5 +1,7 @@
 import sys
 import re
+from typing import List
+
 import chess
 import chess.engine
 from ptParams import *
@@ -11,123 +13,134 @@ lc0_cmd = params["Lc0"]
 del params["Lc0"]
 weightPath = params["weights_path"]
 del params["weights_path"]
+nodes = params["nodes"]
+del params["nodes"]
+############################################################
+def runOnePosition(epd_field: string,
+				   tcec_moves: string,
+				   stop_first_found: bool,
+				   found_three_times: bool,
+				   engine: chess.engine.SimpleEngine) -> string:
+
+    board = chess.Board(epd_field)
+    count_found: int = 0
+    info2 = []
+    agree = False
+    with engine.analysis(board, multipv=3, info=chess.engine.INFO_ALL) as analysis:
+        for info in analysis:
+            print(board.san(info['pv'][0]),info.get('score'), info.get("nodes", 0), info['time'])
+            info2.append(info)
+            # Unusual stop condition.
+            is_first_pv:bool = info['multipv'] == 1
+            if is_first_pv and " " + board.san(info['pv'][0]) in tcec_moves:
+                if stop_first_found:
+                    agree = True
+                    break
+                count_found += 1
+                if found_three_times and count_found == 3:
+                    agree = True
+                    break
+            if info.get("nodes", 0) > 400000:
+                break
+    turn = "W" if board.turn == chess.WHITE else "B"
+    agree2 = "1" if agree else "0"
+    mpv = []
+    for info in analysis.multipv:
+        score = str(info['score'].relative.cp)
+        move = board.san(info['pv'][0])
+        mpv.append([move, score])
+    mpv2 = json.dumps(mpv)
+    #print("agree, tcec_moves, nodes, positionId, toPlay, multiPv[move, eval cp]")
+    nodes1 = int(info.get('nodes'))
+    position_id = 7777
+    return f'{agree2}, {str.strip(tcec_moves)}, {nodes1}, {position_id}, {turn}, {mpv2}'
+
+
 #############################################################################
 ########### stuff for each run
 #############################################################################
 def movesToString(moveList):
-	mls = []
-	for m in moveList:
-		mls.append(str(m))
-	return " ".join(mls)	
+    mls = []
+    for m in moveList:
+        mls.append(str(m))
+    return " ".join(mls)
+
 
 def writeLog(logFile, logList):
-	for val in logList:
-		logFile.write(val + "\n")
-	logFile.flush()  # so it can be monitored during run
-	
+    for val in logList:
+        logFile.write(val + "\n")
+    logFile.flush()  # so it can be monitored during run
+
+
 # run one pass through an EPD tactics file with specific parameters
-# returns (success, total, list of failures)
-# either nodeNum or moveTime should be provided but not both
-def runTactics(epdPath, logFile, lc0_cmd, optString, weightPath, weight, nodeNum):
-	startTime = datetime.datetime.now()
-	logLines = ["result; engine_move; iccf_move(s); nodes; problem_id; network; side; piece_count; evaluation"]
-	#no options right now
-	# lc0_cmd += " --weights=" + weightPath + weight + " --history-fill=always " + optString
+# returns (success, total, averageNodes)
+# always nodes, moveTime is not used, there isn't time control on positions.
+def runTactics(epdPath1, logFile, lc0_cmd1, optString, weightPath, weight, nodeNum):
+    startTime = datetime.datetime.now()
+    logLines1 = ["result; engine_move; iccf_move(s); nodes; problem_id; network; side; piece_count; evaluation"]
+    # no options right now
+    # lc0_cmd += " --weights=" + weightPath + weight + " --history-fill=always " + optString
 
-	appendix = " nodes=" + str(nodeNum)
-	logFile.write("#### " + lc0_cmd + appendix + "\n")
-	sys.stderr.write(lc0_cmd + appendix + "\n")
-	#engine = chess.uci.popen_engine(lc0_cmd)
-	engine = chess.engine.SimpleEngine.popen_uci(lc0_cmd)
-	#engine.configure({hash:2000})
-	#info_handler = chess.uci.InfoHandler()
-	#engine.info_handlers.append(info_handler)  # there is an empty list of these on engine creation
+    appendix = " nodes=" + str(nodeNum)
+    logFile.write("#### " + lc0_cmd1 + appendix + "\n")
+    sys.stderr.write(lc0_cmd1 + appendix + "\n")
+
+    engine = chess.engine.SimpleEngine.popen_uci(lc0_cmd1)
 
 
+    epdf = open(epdPath1)
+    epdfLines = epdf.readlines()
+    epdf.close()
+    epdfl = []
+    for eline in epdfLines:
+        if not eline.startswith("#"):
+            epdfl.append(eline)
+    sys.stderr.write("\n" + str(len(epdfl)) + " problems... ")
+    right = 0
+    total = 0
 
-	#engine.ucinewgame()
+    for line in epdfl:
+        fields: List[str] = line.split(";")
+        epdField = fields[0].strip()
+        # will use match to keep bm but for now just remove it
+        epdField = re.sub(' bm .*', '', epdField)
+        tcec_moves = str(re.search('bm (.*;)').group(1))
+        engine = chess.engine.SimpleEngine.popen_uci(lc0_cmd1)
+		stop_first = True
+		found_three_times = False
+		result = runOnePosition(epdField,
+			tcec_moves,
+			stop_first,
+			found_three_times,
+			engine)
+        #		info = engine.analyse(board, chess.engine.Limit(nodes=100))
+        if int(result.split(",")[0]) == 1 :
+            right += 1
+        logLines1.append(result)
 
-# this epdf file is now called position file and used fen not epd
-# and it can't be here. This method is to run one positon!
-# the engine options are set with configure()
 
-	epdf = open(epdPath)
-	epdfLines = epdf.readlines()
-	epdf.close()
-	epdfl = []
-	for eline in epdfLines:
-		if not eline.startswith("#"):
-			epdfl.append(eline)
-	sys.stderr.write("\n" + str(len(epdfl)) + " problems... ")
-	right = 0; total = 0; nodesUsed = []
-	info2 =  chess.engine.AnalysisResult()
-	for line in epdfl:
-		fields = line.split(";")
-		epdfield = fields[0].strip()
-		#will use match to keep bm but for now just remove it
-		epdfield = re.sub(' bm .*','',epdfield)
-		multipv = 2
-		engine = chess.engine.SimpleEngine.popen_uci(lc0_cmd)
-		board = chess.Board(epdfield)
-		with engine.analysis(board) as analysis:
-			for info in analysis.multipv:
-				print(info.get("score"), info.get("pv"))
+        if len(logLines1) > logBufferSize - 1:
+            writeLog(logFile, logLines1)
+            logLines = []
+        total += 1
 
-				# Unusual stop condition.
-				if info.get("nodes", 0) > 30000:
-					print(board)
-					info2= info
-					break
-		engine.quit()
-#		info = engine.analyse(board, chess.engine.Limit(nodes=100))
-		continue
-		move, pondermove = engine.go(nodes=nodeNum)  # Move objects
-		pv = info_handler.info["pv"][1]
-		mnodes = info_handler.info["nodes"] # mnodes is an integer
-		nodesUsed.append(mnodes)
-		best_moves = epd["bm"]
-		bmstr = movesToString(best_moves)
-		mscore = info_handler.info["score"][1].cp
-		if mscore != None: evalstr = "%+.2f" % (mscore/100.0)
-		else: evalstr = "no_score"
-		if move in best_moves:
-			right += 1
-			logLines.append("; ".join(["1",str(move),bmstr,str(mnodes),idfield,weight,side,str(pieceNum),evalstr]))
+        if total % progressInterval == 0:
+            showProgress(epdfl, right, startTime, total)
 
-		else:
-			pv = info_handler.info["pv"][1]  # a list of the Move objects from the pv
-			pvstrl = []
-			for i in range(min(len(pv),6)):
-				pvstrl.append(str(pv[i]))
-			mvstr = " ".join(pvstrl)
-			#mscore = info_handler.info["score"][1].cp
-			if mscore != None:
-				evalstr = "%+.2f" % (mscore/100.0)
-				mvstr += " " + "%+.2f" % (mscore/100.0)  # the score in pawns with sign
-			else: 
-				evalstr = "no_score"
-				mvstr += " no_score"
-			logLines.append("; ".join(["0",str(move),bmstr,str(mnodes),idfield,weight,side,str(pieceNum),evalstr]))		
 
-		if len(logLines) > logBufferSize-1:
-			
+def showProgress(epdfl, right, startTime, total):
+	elapsedTime = datetime.datetime.now() - startTime
+	problems = len(epdfl)
+	timePerProblem = elapsedTime / total
+	expectedEndTime = ((timePerProblem * problems) + startTime).isoformat(' ', 'minutes')
+	percentAgree = str(round(right / total * 100, 2))
+	sys.stderr.write("\r" + str(right) + "/" + str(
+		total) + " Agree:" + percentAgree + "%  Expected end of this run:" + expectedEndTime + "            ")
+	sys.stderr.flush()
 
-			writeLog(logFile, logLines)
-			logLines = []
-		total += 1
-				
-		if  total % progressInterval == 0:
-		
-			elapsedTime = datetime.datetime.now() - startTime
-			problems = len(epdfl)
-			timePerProblem = elapsedTime/total
-			expectedEndTime =  ((timePerProblem * problems ) + startTime).isoformat(' ','minutes')
-			percentAgree = str(round(right/total*100,2))
 
-			sys.stderr.write( "\r" + str(right) + "/" +str(total) + " Agree:" + percentAgree + "%  Expected end of this run:" + expectedEndTime + "            ")
-			sys.stderr.flush()
-			
-	engine.quit()
-	writeLog(logFile, logLines)  # make sure the last set is written
-	sys.stderr.write("\n")
-	return right, total, nodesUsed
+engine.quit()
+    writeLog(logFile, logLines)  # make sure the last set is written
+    sys.stderr.write("\n")
+    return right, total, nodesUsed
+

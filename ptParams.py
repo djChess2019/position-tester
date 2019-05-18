@@ -6,10 +6,9 @@ jsonFileName = "./engineSetup/sampleJsonFile.json"
 outFileName = "./supportingFiles/sampleResults.txt"
 # the log file will contain a simple summary of failed problems
 logFileName = "./supportingFiles/sample.log"
-#do you even want a progress indicator
-
+# do you even want a progress indicator
 progressInterval = 5
-#how often to write out the the log file
+# how often to write out the the log file
 logBufferSize = 1000
 # NOTE: --history-fill=always is hard coded - no need for having it set in .json
 epdPath = "./positionSets/samplePositonFile.txt"
