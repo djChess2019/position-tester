@@ -29,8 +29,8 @@ import datetime
 #         o send the sumary rusults
 
 # as of May 16, 2019 these are up to avoid magic strings, but probably won't be changing.
-progressInterval = 5
-logBuffer = 100
+progressInterval = 1
+logBuffer = 10
 
 # TODO: reorganize so all args are in one file - the only command line option is one settings file name.
 # file with a simple list of networks to test, 1 per line. path taken from json
@@ -190,7 +190,7 @@ def runTactics(epdFile,
     params["WeightsFile"] = weightPath2 + weight2
     params["HistoryFill"] = "always"
 
-    engine.configure({"Threads": 2})
+    engine.configure(params)
     # TODO use a more generic method. epdfLines = readAllLineFrom(epdFileName)  probably not on level of forEachNet
     epdf = open(epdFile)
     epdfLines = epdf.readlines()
