@@ -30,7 +30,7 @@ import datetime
 
 # as of May 16, 2019 these are up to avoid magic strings, but probably won't be changing.
 progressInterval = 5
-logBuffer = 10000
+logBuffer = 100
 
 # TODO: reorganize so all args are in one file - the only command line option is one settings file name.
 # file with a simple list of networks to test, 1 per line. path taken from json
@@ -47,6 +47,7 @@ appendingOut = os.path.exists(outFileName)
 outFile = open(outFileName, "a")
 
 # set up command and paths from the json file, removing them as you go
+# some commands are ok, even required in the .json but can't be in engine params this will be fixed with yaml
 params = json.load(open(jsonFileName))
 epdPath = params["EPD"]
 del params["EPD"]
@@ -60,7 +61,19 @@ if "nodes" in params:
     del params["nodes"]
 else:
     maxNodes = 100
+if "stop_first" not in params:
+    stop_first = False
+else:
+    stop_first = params["stop_first"]
+    del params["stop_first"]
+if "found_three_times" not in params:
+    found_three_times = False
+else:
+    found_three_times = params["found_three_times"]
+    del params["found_three_times"]
 
+if "tc" in params:
+    del params["tc"]
 if not appendingOut:  # write a header if this is a new output file
     # TODO correct outFile header line.
     outFile.write("network\treq_nodes\tavg_nodes\tagreed\ttotal\tpercent\n")
@@ -74,7 +87,7 @@ for pkey in pkeys:
         optList.append("--" + pkey)
     else:
         optList.append("--" + pkey + "=" + str(params[pkey]))
-optString = " ".join(optList)
+optionString = " ".join(optList)
 
 weights = []
 theOpenFile = open(netsFileName)
@@ -105,30 +118,36 @@ def writeLog(logFile2, logList):
 
 
 def runOnePosition(epd_field: str,
+                   maxNodes3,
                    position_id: str,
                    tcec_moves: str,
                    stop_first_found: bool,
                    found_three_times: bool,
-                   maxNodes1: int, engine: chess.engine.SimpleEngine):
+                   engine: chess.engine.SimpleEngine):
     board = chess.Board(epd_field)
     count_found: int = 0
     agree = False
     with engine.analysis(board, multipv=3, info=chess.engine.INFO_ALL) as analysis:
         for info in analysis:
-            print(board.san(info['pv'][0]), info.get('score'), info.get("nodes", 0), info['time'])
 
             # Unusual stop condition.
             is_first_pv: bool = info['multipv'] == 1
-            if is_first_pv and " " + board.san(info['pv'][0]) in tcec_moves:
-                if stop_first_found:
-                    agree = True
-                    break
+            agree = is_first_pv and " " + board.san(info['pv'][0]) in tcec_moves
+            if agree:
                 count_found += 1
-                if found_three_times and count_found == 3:
-                    agree = True
-                    break
-            if info.get("nodes", 0) > maxNodes1:
+            # if is_first_pv:
+            #      print (info['multipv'], board.san(info['pv'][0]), tcec_moves,
+            #      info.get('score'), info.get("nodes", 0), info['time'])
+            #      atest = board.san(info['pv'][0])
+            #      btest = tcec_moves
+            if info.get("nodes", 0) > maxNodes3:
                 break
+            if agree and stop_first_found:
+                break
+            if found_three_times and count_found == 3:
+                agree = True
+                break
+
     turn = "W" if board.turn == chess.WHITE else "B"
     agree2 = "1" if agree else "0"
     mpv = []
@@ -147,13 +166,31 @@ def runOnePosition(epd_field: str,
 # run one pass through an EPD tactics file with specific parameters
 # returns (success, total, list of failures)
 # maxNodes must be provided tc is not used
-def runTactics(epdFile, logFile1, lc0_cmd, optString, weightPath, weight, nodeNum=None, moveTime=None):
+def runTactics(epdFile,
+               logFile1,
+               lc0_cmd2,
+               optString2,
+               weightPath2,
+               weight2):
     logLines = ["result; engine_move; iccf_move(s); nodes; problem_id; network; side; piece_count; evaluation"]
-    lc0_cmd += " --weights=" + weightPath + weight + " --history-fill=always " + optString
-    appendix2 = " nodes=" + str(nodeNum)
-    logFile1.write("#### " + lc0_cmd + appendix2 + "\n")
-    sys.stderr.write(lc0_cmd + appendix2 + "\n")
-    engine = chess.uci.popen_engine(lc0_cmd)
+    appendix2 = " nodes=" + str(maxNodes)
+    logFile1.write("#### " + lc0_cmd2 + appendix2 + "\n")
+    sys.stderr.write(lc0_cmd2 + appendix2 + "\n")
+
+    # TODO add options back in
+    # it can't be in after file name like it was
+    # options2 = " --weights=" + weightPath2 + weight2 + " --history-fill=always " + optString2
+    engine = chess.engine.SimpleEngine.popen_uci(lc0_cmd2)
+    for opt in params:
+        if opt not in engine.options:
+            print(f"you used '{opt}; in you setting.json available options are:")
+            for o in engine.options:
+                print(o)
+            exit()
+    params["WeightsFile"] = weightPath2 + weight2
+    params["HistoryFill"] = "always"
+
+    engine.configure({"Threads": 2})
     # TODO use a more generic method. epdfLines = readAllLineFrom(epdFileName)  probably not on level of forEachNet
     epdf = open(epdFile)
     epdfLines = epdf.readlines()
@@ -163,82 +200,61 @@ def runTactics(epdFile, logFile1, lc0_cmd, optString, weightPath, weight, nodeNu
         if not eline.startswith("#"):
             epdfl.append(eline)
     sys.stderr.write("\n" + str(len(epdfl)) + " problems... ")
-    right = 0;
-    total = 0;
+    right = 0
+    total2 = 0
     nodesUsed = []
-    # TODO	put these in position-tester-settings.yaml
-    stop_first = True
-    found_three_times = True
 
-    for line in epdfl:
-        epd_field = line.split(";")[0].strip()
-        positionId = line.split(";")[1].strip()
-        tcec_moves = str(re.search('bm (.*;)').group(1))
+    for line2 in epdfl:
+        epd_field = line2.split("bm ")[0].strip()
+        positionId = line2.split(";")[1].strip()
+        tcec_moves = " " + str(re.search('bm (.*);', line2).group(1)) + " "  # spaces must surround moves
         # TODO add ECO so it can be entered for each position output in log
         positionResult = runOnePosition(epd_field,
+                                        maxNodes,
                                         positionId,
                                         tcec_moves,
                                         stop_first,
                                         found_three_times,
                                         engine)
-        # fields = line.split(";")
-        # idfield = fields[1].strip()
-        # epd = board.set_epd(epdfield)
-        # engine.ucinewgame()
-        # engine.position(board)
-        # pieceNum = len(board.piece_map())
-        #
-        # if nodeNum == None:
-        # 	move, pondermove = engine.go(movetime=moveTime)
-        # else:
-        # 	move, pondermove = engine.go(nodes=nodeNum)  # Move objects
-        # pv = info_handler.info["pv"][1]
-        # mnodes = info_handler.info["nodes"] # mnodes is an integer
-        # nodesUsed.append(mnodes)
-        # best_moves = epd["bm"]
-        # bmstr = movesToString(best_moves)
-        # mscore = info_handler.info["score"][1].cp
-        # if mscore != None: evalstr = "%+.2f" % (mscore/100.0)
-        # else: evalstr = "no_score"
+        resultfields = positionResult.split(",")
+        if int(resultfields[0]) == 1:
+            right += 1
+
+        nodesUsed.append(int(resultfields[2]))
         # if move in best_moves:
         # 	right += 1
-        # 	logLines.append("; ".join(["1",str(move),bmstr,str(mnodes),idfield,weight,side,str(pieceNum),evalstr]))
+        # 	logLines.append("; ".join(["1",str(move),bmstr,str(mnodes),idfield,weight2,side,str(pieceNum),evalstr]))
         #
         # else:
         # 	pv = info_handler.info["pv"][1]  # a list of the Move objects from the pv
-        # 	pvstrl = []
-        # 	for i in range(min(len(pv),6)):
-        # 		pvstrl.append(str(pv[i]))
-        # 	mvstr = " ".join(pvstrl)
-        # 	#mscore = info_handler.info["score"][1].cp
-        # 	if mscore != None:
-        # 		evalstr = "%+.2f" % (mscore/100.0)
-        # 		mvstr += " " + "%+.2f" % (mscore/100.0)  # the score in pawns with sign
-        # 	else:
-        # 		evalstr = "no_score"
-        # 		mvstr += " no_score"
         logLines.append(positionResult)
 
         if len(logLines) > logBuffer - 1:
             writeLog(logFile1, logLines)
             logLines = []
-        total += 1
+        total2 += 1
 
-        if total % progressInterval == 0:
+        if total2 % progressInterval == 0:
             elapsedTime = datetime.datetime.now() - startTime
             problems = len(epdfl)
-            timePerProblem = elapsedTime / total
+            timePerProblem = elapsedTime / total2
             expectedEndTime = ((timePerProblem * problems) + startTime).isoformat(' ', 'minutes')
-            percentAgree = str(round(right / total * 100, 2))
-
-            sys.stderr.write("\r" + str(right) + "/" + str(
-                total) + " Agree:" + percentAgree + "%  Expected end of this run:" + expectedEndTime + "            ")
+            percentAgree = str(round(right / total2 * 100, 2))
+            outv2 = ["\r" + str(right) + "/" + str(total2),
+                     " Agree:" + percentAgree + "%",
+                     "Expected end of this run: " + expectedEndTime,
+                     "mean nodes per move: " + str(int(round(np.mean(nodesUsed)))),
+                     "stop_first: " + str(stop_first),
+                     "found_three_times: " + str(found_three_times),
+                     "maxNodes: " + str(maxNodes) + "                     "
+                     ]
+            sys.stderr.write(", ".join(outv2))
             sys.stderr.flush()
 
     engine.quit()
     writeLog(positionTestLog, logLines)  # make sure the last set is written
     sys.stderr.write("\n")
-    return right, total, nodesUsed
+    return right, total2, nodesUsed
 
 
 ################################################################################
@@ -248,14 +264,20 @@ runTot = len(weights)
 runNum = 1
 for weight in weights:  # loop over network weights, running problem set for each
     startTime = datetime.datetime.now()
-    appendix = str(nodes) + " nodes"
+    appendix = str(maxNodes) + " nodes"
 
     sys.stdout.write("\nRun " + str(runNum) + " of " + str(runTot) + ": " + weight + ", " + appendix + "\n")
     sys.stdout.flush()
-    # run the test fir this network
-    agreed, total, nodesUsedList = runTactics(epdPath, positionTestLog, lc0_cmd, optString, weightPath, weight,
-                                              nodeNum=nodes)
-    outv = [weight, str(nodes), str(int(round(np.mean(nodesUsedList)))), str(agreed), str(total),
+    # run the test for this network
+    agreed, total, nodesUsedList = runTactics(
+        epdPath,
+        positionTestLog,
+        lc0_cmd,
+        optionString,
+        weightPath,
+        weight
+    )
+    outv = [weight, str(maxNodes), str(int(round(np.average(nodesUsedList)))), str(agreed), str(total),
             "%.3f" % ((100.0 * agreed) / total)]
     outFile.write("\t".join(outv) + "\n")
     outFile.flush()

@@ -1,2 +1,0 @@
-#### ./lc0.exe --weights=./weights_run2_52300.pb.gz --history-fill=always --cpuct=3.0 --minibatch-size=512 --move-overhead=0 --threads=1 nodes=1
-#### ../lc0/lc0.exe --weights=./weights_run2_52300.pb.gz --history-fill=always --cpuct=3.0 --minibatch-size=256 --move-overhead=1 --threads=2 nodes=1

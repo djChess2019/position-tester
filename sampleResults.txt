@@ -1,1 +1,0 @@
-network	req_nodes	avg_nodes	agreed	total	percent
