@@ -1,7 +1,7 @@
 {
   "EPD": "./IccfCombined-1NodeReduced-113k.txt",
-  "Lc0": "F:\\leela\\lc0-v0.20.2-t40B\\lc0.exe",
-  "weights_path": "F:\\leela\\nets\\",
+  "Lc0": "../lc0/lc0.exe",
+  "weights_path": "./",
   "threads": 2,
   "minibatchSize": 256,
   "cpuct": 3.0,
