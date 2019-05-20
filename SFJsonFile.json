@@ -1,0 +1,7 @@
+{
+  "EPD": "samplePositionFile.txt",
+  "enginePath": "C:\\engines\\dec2018\\stockfish_18121313_x64_modern.exe",
+  "nodes": 10000000,
+  "stop_first": 1,
+  "found_three_times": 0
+}
