@@ -125,6 +125,7 @@ def runOnePosition(epd_field: str,
 
             # Unusual stop condition.
             if info['score'].is_mate():
+                agree = True
                 break
             if info.get("nodes", 0) > maxNodes3:
                 break
