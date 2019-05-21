@@ -6,7 +6,7 @@
   "minibatchSize": 256,
   "cpuct": 3.0,
   "MoveOverheadMs": 1,
-  "nodes": 3000,
+  "nodes": 1000,
   "stop_first": 1,
   "found_three_times": 0
 }

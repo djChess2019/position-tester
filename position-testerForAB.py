@@ -124,6 +124,8 @@ def runOnePosition(epd_field: str,
         for info in analysis:
 
             # Unusual stop condition.
+            if info['score'].is_mate():
+                break
             if info.get("nodes", 0) > maxNodes3:
                 break
             # is_first_pv: bool = info['multipv'] == 1
@@ -182,8 +184,6 @@ def runTactics(epdFile,
 
     for o in engine4.options:
         print(o)
-
-
     engine4.configure(params)
     # TODO use a more generic method. epdfLines = readAllLineFrom(epdFileName)  probably not on level of forEachNet
     epdf = open(epdFile)
