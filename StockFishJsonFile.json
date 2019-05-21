@@ -1,0 +1,6 @@
+{
+  "EPD": "F:\\leela\\github\\position-tester\\samplePositionFile.txt",
+  "enginePath": "C:\\engines\\stockfish_17061704_x64_modern.exe",
+  "nodes": 100,
+  "stop_first": 1
+}

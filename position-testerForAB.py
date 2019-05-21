@@ -172,19 +172,17 @@ def runTactics(epdFile,
                ):
     # TODO fix this
     logLines = ["result; engine_move; iccf_move(s); nodes; problem_id;  side;"]
-    appendix2 = " nodes=" + str(maxNodes)
-    logFile1.write("#### " + enginePath3 + appendix2 + "\n")
-    sys.stderr.write(enginePath3 + appendix2 + "\n")
+    appendix2 = f" enginePath = {enginePath}; nodes=" + str(maxNodes)
+    logFile1.write("#### " + appendix2 + "\n")
+    sys.stderr.write(appendix2 + "\n")
 
     # TODO add options back in
     # it can't be in after file name like it was
     engine4 = chess.engine.SimpleEngine.popen_uci(enginePath3)
-    for opt in params:
-        if opt not in engine4.options:
-            print(f"you used '{opt}; in you setting.json available options are:")
-            for o in engine4.options:
-                print(o)
-            exit()
+
+    for o in engine4.options:
+        print(o)
+
 
     engine4.configure(params)
     # TODO use a more generic method. epdfLines = readAllLineFrom(epdFileName)  probably not on level of forEachNet
@@ -215,7 +213,7 @@ def runTactics(epdFile,
         resultfields = positionResult.split(",")
         if int(resultfields[0]) == 1:
             right += 1
-
+        logLines.append(positionResult)
         nodesUsed.append(int(resultfields[2]))
 
         if len(logLines) > logBuffer - 1:
