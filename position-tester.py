@@ -61,17 +61,11 @@ if "nodes" in params:
     del params["nodes"]
 else:
     maxNodes = 100
-if "stop_first" not in params:
-    stop_first = False
+if "earlyStop" not in params:
+    earlyStop = 1
 else:
-    stop_first = params["stop_first"]
-    del params["stop_first"]
-if "found_three_times" not in params:
-    found_three_times = False
-else:
-    found_three_times = params["found_three_times"]
-    del params["found_three_times"]
-
+    earlyStop = params["stop_first"]
+    del params["earlyStop"]
 if "tc" in params:
     del params["tc"]
 if not appendingOut:  # write a header if this is a new output file
@@ -118,35 +112,34 @@ def writeLog(logFile2, logList):
 
 
 def runOnePosition(epd_field: str,
-                   maxNodes3,
                    position_id: str,
                    tcec_moves: str,
-                   stop_first_found: bool,
-                   found_three_times: bool,
                    engine: chess.engine.SimpleEngine):
     board = chess.Board(epd_field)
     count_found: int = 0
     agree = False
+    agreeList = []
+    prevAgreement = False
     with engine.analysis(board, multipv=3, info=chess.engine.INFO_ALL) as analysis:
         for info in analysis:
 
             # Unusual stop condition.
-            is_first_pv: bool = info['multipv'] == 1
-            agree = is_first_pv and " " + board.san(info['pv'][0]) in tcec_moves
-            if agree:
-                count_found += 1
-            # if is_first_pv:
-            #      print (info['multipv'], board.san(info['pv'][0]), tcec_moves,
-            #      info.get('score'), info.get("nodes", 0), info['time'])
-            #      atest = board.san(info['pv'][0])
-            #      btest = tcec_moves
-            if info.get("nodes", 0) > maxNodes3:
-                break
-            if agree and stop_first_found:
-                break
-            if found_three_times and count_found == 3:
-                agree = True
-                break
+            isFirstPv: bool = info.get('multipv') == 1
+            if isFirstPv:
+                agree = " " + board.san(info.get('pv')[0]) in tcec_moves
+
+                nodesUsed = info.get('nodes')
+                agreedLikePrevious = agree == prevAgreement
+                if not agreedLikePrevious:
+                    append = nodesUsed if agree else (nodesUsed * -1)
+                    agreeList.append(append)
+                # prevAgreement is really used, it is just in next loop iteration
+                prevAgreement = agree
+                nodesUsed = info.get("nodes")
+                if agree and (nodesUsed >= maxNodes * earlyStop):
+                    break
+                elif nodesUsed >= maxNodes:
+                    break
 
     turn = "W" if board.turn == chess.WHITE else "B"
     agree2 = "1" if agree else "0"
@@ -156,11 +149,12 @@ def runOnePosition(epd_field: str,
         move = board.san(info['pv'][0])
         mpv.append([move, score])
     mpv2 = json.dumps(mpv)
+    pieces = board.piece_map().__len__()
     # TODO this is header print line
-    #  print("agree, tcec_moves, nodesUsed, positionId, toPlay, multiPv[move, eval cp]")
-    nodesUsed = int(info.get('nodes'))
+    #  print("agree, tcec_moves, nodesUsed, positionId, toPlay, multiPv[move, eval cp], agreeList, pieceCount, weight")
 
-    return f'{agree2}, {str.strip(tcec_moves)}, {nodesUsed}, {position_id}, {turn}, {mpv2}'
+    return f'{agree2}, {str.strip(tcec_moves)}, {nodesUsed}, {position_id}, \
+{turn}, {mpv2},{agreeList}, {pieces}, {weight}'
 
 
 # run one pass through an EPD tactics file with specific parameters
@@ -169,10 +163,9 @@ def runOnePosition(epd_field: str,
 def runTactics(epdFile,
                logFile1,
                lc0_cmd2,
-               optString2,
                weightPath2,
                weight2):
-    logLines = ["result; engine_move; iccf_move(s); nodes; problem_id; network; side; piece_count; evaluation"]
+    logLines = ["result; TcecMove(s); nodes used; position_id; toPlay; pvList; piece_count; agreementNodesList"]
     appendix2 = " nodes=" + str(maxNodes)
     logFile1.write("#### " + lc0_cmd2 + appendix2 + "\n")
     sys.stderr.write(lc0_cmd2 + appendix2 + "\n")
@@ -210,11 +203,8 @@ def runTactics(epdFile,
         tcec_moves = " " + str(re.search('bm (.*);', line2).group(1)) + " "  # spaces must surround moves
         # TODO add ECO so it can be entered for each position output in log
         positionResult = runOnePosition(epd_field,
-                                        maxNodes,
                                         positionId,
                                         tcec_moves,
-                                        stop_first,
-                                        found_three_times,
                                         engine)
         resultfields = positionResult.split(",")
         if int(resultfields[0]) == 1:
@@ -243,10 +233,10 @@ def runTactics(epdFile,
             outv2 = ["\r" + str(right) + "/" + str(total2),
                      " Agree:" + percentAgree + "%",
                      "Expected end of this run: " + expectedEndTime,
-                     "mean nodes per move: " + str(int(round(np.mean(nodesUsed)))),
-                     "stop_first: " + str(stop_first),
-                     "found_three_times: " + str(found_three_times),
-                     "maxNodes: " + str(maxNodes) + "                     "
+                     "average nodes per move: " + str(int(round(np.average(nodesUsed)))),
+                     "earlyStop: " + str(earlyStop * 100) + "%",
+                     "maxNodes: " + str(maxNodes),
+                     "net: " + weight + "                     "
                      ]
             sys.stderr.write(", ".join(outv2))
             sys.stderr.flush()
@@ -273,7 +263,6 @@ for weight in weights:  # loop over network weights, running problem set for eac
         epdPath,
         positionTestLog,
         lc0_cmd,
-        optionString,
         weightPath,
         weight
     )
