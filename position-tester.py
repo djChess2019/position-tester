@@ -157,6 +157,18 @@ def runOnePosition(epd_field: str,
 {turn}, {mpv2},{agreeList}, {pieces}, {weight}'
 
 
+def enginePlay(engine, board, tcecMoves, positionId):
+    result = engine.play(board, chess.engine.Limit(nodes=maxNodes), info=chess.engine.INFO_ALL)
+    agree3 = " " + board.san(result.info.get('pv')[0]) in tcecMoves
+    nodesUsed = result.info.get('nodes')
+    turn = "W" if board.turn == chess.WHITE else "B"
+    pieces = board.piece_map().__len__()
+    verbose = result.info.get("string")
+    agree4 = "1" if agree3 else "0"
+    return f'{agree4}, {str.strip(tcecMoves)}, {nodesUsed}, {positionId}, \
+    {turn},  {pieces}, {weight}, {verbose} '
+
+
 # run one pass through an EPD tactics file with specific parameters
 # returns (success, total, list of failures)
 # maxNodes must be provided tc is not used
@@ -177,9 +189,9 @@ def runTactics(epdFile,
     for opt in params:
         if opt not in engine.options:
             print(f"you used '{opt}; in you setting.json available options are:")
-            for o in engine.options:
-                print(o)
-            exit()
+    for o in engine.options:
+        print(o)
+    params["VerboseMoveStats"] = True
     params["WeightsFile"] = weightPath2 + weight2
     params["HistoryFill"] = "always"
 
@@ -201,22 +213,17 @@ def runTactics(epdFile,
         epd_field = line2.split("bm ")[0].strip()
         positionId = line2.split(";")[1].strip()
         tcec_moves = " " + str(re.search('bm (.*);', line2).group(1)) + " "  # spaces must surround moves
-        # TODO add ECO so it can be entered for each position output in log
-        positionResult = runOnePosition(epd_field,
-                                        positionId,
-                                        tcec_moves,
-                                        engine)
-        resultfields = positionResult.split(",")
-        if int(resultfields[0]) == 1:
+        board = chess.Board(epd_field)
+        positionResult = enginePlay(engine, board, tcec_moves, positionId)
+        # # positionResult = runOnePosition(epd_field,
+        #                                 positionId,
+        #                                 tcec_moves,
+        #                                 engine)
+        resultFields = positionResult.split(",")
+        if int(resultFields[0]) == 1:
             right += 1
 
-        nodesUsed.append(int(resultfields[2]))
-        # if move in best_moves:
-        # 	right += 1
-        # 	logLines.append("; ".join(["1",str(move),bmstr,str(mnodes),idfield,weight2,side,str(pieceNum),evalstr]))
-        #
-        # else:
-        # 	pv = info_handler.info["pv"][1]  # a list of the Move objects from the pv
+        nodesUsed.append(int(resultFields[2]))
         logLines.append(positionResult)
 
         if len(logLines) > logBuffer - 1:
