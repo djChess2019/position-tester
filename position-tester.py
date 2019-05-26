@@ -120,7 +120,8 @@ def runOnePosition(epd_field: str,
     agree = False
     agreeList = []
     prevAgreement = False
-    with engine.analysis(board, multipv=3, info=chess.engine.INFO_ALL) as analysis:
+    limit = chess.engine.Limit(nodes=maxNodes)
+    with engine.analysis(board, limit=limit, multipv=3, info=chess.engine.INFO_ALL) as analysis:
         for info in analysis:
 
             # Unusual stop condition.
@@ -150,11 +151,18 @@ def runOnePosition(epd_field: str,
         mpv.append([move, score])
     mpv2 = json.dumps(mpv)
     pieces = board.piece_map().__len__()
-    # TODO this is header print line
-    #  print("agree, tcec_moves, nodesUsed, positionId, toPlay, multiPv[move, eval cp], agreeList, pieceCount, weight")
+
+    # get the verbose-move-stats this is not yet finished
+    v = analysis.inner.info.get('string')
+    verbose = re.findall(r"\(.*?\)", v)
+    n = re.findall(r"N:.*?\)", v)
+    #
+    verbose.pop(0)
+    # for i, val in enumerate(list):
+    #     val = val.remove(")")
 
     return f'{agree2}, {str.strip(tcec_moves)}, {nodesUsed}, {position_id}, \
-{turn}, {mpv2},{agreeList}, {pieces}, {weight}'
+{turn}, {mpv2},{agreeList}, {pieces}, {weight},'
 
 
 def enginePlay(engine, board, tcecMoves, positionId):
@@ -214,11 +222,11 @@ def runTactics(epdFile,
         positionId = line2.split(";")[1].strip()
         tcec_moves = " " + str(re.search('bm (.*);', line2).group(1)) + " "  # spaces must surround moves
         board = chess.Board(epd_field)
-        positionResult = enginePlay(engine, board, tcec_moves, positionId)
-        # # positionResult = runOnePosition(epd_field,
-        #                                 positionId,
-        #                                 tcec_moves,
-        #                                 engine)
+        # positionResult = enginePlay(engine, board, tcec_moves, positionId)
+        positionResult = runOnePosition(epd_field,
+                                        positionId,
+                                        tcec_moves,
+                                        engine)
         resultFields = positionResult.split(",")
         if int(resultFields[0]) == 1:
             right += 1
