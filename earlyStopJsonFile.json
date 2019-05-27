@@ -1,10 +1,11 @@
 {
-  "EPD": "./IccfCombined-1NodeReduced-113k.txt",
+  "EPD": "./MediumDifficulty.txt",
   "Lc0": "F:\\leela\\lc0-v0.20.2-t40B\\lc0.exe",
   "weights_path": "F:\\leela\\nets\\",
-  "threads": 2,
+  "threads": 1,
   "minibatchSize": 256,
   "cpuct": 3.0,
   "MoveOverheadMs": 1,
-  "nodes": 1000
+  "nodes": 10000,
+  "earlyStop": 1
 }

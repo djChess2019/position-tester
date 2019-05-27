@@ -6,7 +6,7 @@ import chess
 import chess.engine
 import json
 import datetime
-
+from decimal import *
 #  TODO: this is the outline of how I feel it should work, program isn't structured to be like this yet.
 #  these fileNames are contained in position-tester-settings.yaml
 #  required files. 	1. an engine one setting for an engine is an optional single paramSetup
@@ -30,7 +30,7 @@ import datetime
 
 # as of May 16, 2019 these are up to avoid magic strings, but probably won't be changing.
 progressInterval = 1
-logBuffer = 10
+logBuffer = 1
 
 # TODO: reorganize so all args are in one file - the only command line option is one settings file name.
 # file with a simple list of networks to test, 1 per line. path taken from json
@@ -64,7 +64,7 @@ else:
 if "earlyStop" not in params:
     earlyStop = 1
 else:
-    earlyStop = params["stop_first"]
+    earlyStop = params["earlyStop"]
     del params["earlyStop"]
 if "tc" in params:
     del params["tc"]
@@ -120,12 +120,17 @@ def runOnePosition(epd_field: str,
     agree = False
     agreeList = []
     prevAgreement = False
-    with engine.analysis(board, multipv=3, info=chess.engine.INFO_ALL) as analysis:
+    infoForDebug = []
+    # the detailedMoveInfo is available only when a limit is set AND then after it exits the loop.
+    limit = chess.engine.Limit(nodes=maxNodes)
+    with engine.analysis(board, limit, multipv=3, info=chess.engine.INFO_ALL) as analysis:
         for info in analysis:
 
             # Unusual stop condition.
             isFirstPv: bool = info.get('multipv') == 1
             if isFirstPv:
+                # TODO disable this in production only used with debugger break points
+                infoForDebug.append(info)
                 agree = " " + board.san(info.get('pv')[0]) in tcec_moves
 
                 nodesUsed = info.get('nodes')
@@ -150,11 +155,51 @@ def runOnePosition(epd_field: str,
         mpv.append([move, score])
     mpv2 = json.dumps(mpv)
     pieces = board.piece_map().__len__()
-    # TODO this is header print line
-    #  print("agree, tcec_moves, nodesUsed, positionId, toPlay, multiPv[move, eval cp], agreeList, pieceCount, weight")
 
-    return f'{agree2}, {str.strip(tcec_moves)}, {nodesUsed}, {position_id}, \
-{turn}, {mpv2},{agreeList}, {pieces}, {weight}'
+    # get the verbose-move-stats this is not yet finished
+    v = analysis.inner.info.get('string')
+    probability = 0
+    if v:
+        verbose = re.findall(r"\(.*?\)", v)
+        n = re.findall(r"N:.*?\)", v)
+        #
+        verbose.pop(0)
+        # "(P: 7.17%)"
+        probability = round(float(re.findall("P: (.*?)(?=%)", verbose[1])[0].strip()) / 100, 4)
+
+    # for i, val in enumerate(list):
+    #     val = val.remove(")")
+    r = [int(agree2),
+         str.strip(tcec_moves),
+         nodesUsed,
+         int(position_id),
+         turn,
+         pieces,
+         weight,
+         mpv[0][0],
+         int(mpv[0][1]),
+         mpv[1][0],
+         int(mpv[1][1]),
+         mpv[2][0],
+         int(mpv[2][1]),
+         probability,
+         agreeList.__len__(),
+         agreeList
+         ]
+
+    return r
+
+
+def enginePlay(engine, board, tcecMoves, positionId):
+    result = engine.play(board, chess.engine.Limit(nodes=maxNodes), info=chess.engine.INFO_ALL)
+    agree3 = " " + board.san(result.info.get('pv')[0]) in tcecMoves
+    nodesUsed = result.info.get('nodes')
+    turn = "W" if board.turn == chess.WHITE else "B"
+    pieces = board.piece_map().__len__()
+    verbose = result.info.get("string")
+    agree4 = "1" if agree3 else "0"
+    return f'{agree4}, {str.strip(tcecMoves)}, {nodesUsed}, {positionId}, \
+    {turn},  {pieces}, {weight}, {verbose} '
 
 
 # run one pass through an EPD tactics file with specific parameters
@@ -177,9 +222,9 @@ def runTactics(epdFile,
     for opt in params:
         if opt not in engine.options:
             print(f"you used '{opt}; in you setting.json available options are:")
-            for o in engine.options:
-                print(o)
-            exit()
+    for o in engine.options:
+        print(o)
+    params["VerboseMoveStats"] = True
     params["WeightsFile"] = weightPath2 + weight2
     params["HistoryFill"] = "always"
 
@@ -201,23 +246,18 @@ def runTactics(epdFile,
         epd_field = line2.split("bm ")[0].strip()
         positionId = line2.split(";")[1].strip()
         tcec_moves = " " + str(re.search('bm (.*);', line2).group(1)) + " "  # spaces must surround moves
-        # TODO add ECO so it can be entered for each position output in log
+        board = chess.Board(epd_field)
+        # positionResult = enginePlay(engine, board, tcec_moves, positionId)
         positionResult = runOnePosition(epd_field,
                                         positionId,
                                         tcec_moves,
                                         engine)
-        resultfields = positionResult.split(",")
-        if int(resultfields[0]) == 1:
+
+        if positionResult[0] == 1:
             right += 1
 
-        nodesUsed.append(int(resultfields[2]))
-        # if move in best_moves:
-        # 	right += 1
-        # 	logLines.append("; ".join(["1",str(move),bmstr,str(mnodes),idfield,weight2,side,str(pieceNum),evalstr]))
-        #
-        # else:
-        # 	pv = info_handler.info["pv"][1]  # a list of the Move objects from the pv
-        logLines.append(positionResult)
+        nodesUsed.append(positionResult[2])
+        logLines.append(json.dumps(positionResult))
 
         if len(logLines) > logBuffer - 1:
             writeLog(logFile1, logLines)
