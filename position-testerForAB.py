@@ -121,6 +121,7 @@ def runOnePosition(epd_field: str,
     count_found: int = 0
     agree = False
     infoStore = []
+    # game insures that Leela is creating a new game.
     with engine2.analysis(board, multipv=1, info=chess.engine.INFO_ALL, game=position_id) as analysis:
         for info in analysis:
             infoStore.append(info);
