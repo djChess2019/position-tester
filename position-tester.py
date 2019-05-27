@@ -6,7 +6,8 @@ import chess
 import chess.engine
 import json
 import datetime
-from decimal import *
+import logging
+
 #  TODO: this is the outline of how I feel it should work, program isn't structured to be like this yet.
 #  these fileNames are contained in position-tester-settings.yaml
 #  required files. 	1. an engine one setting for an engine is an optional single paramSetup
@@ -31,6 +32,7 @@ from decimal import *
 # as of May 16, 2019 these are up to avoid magic strings, but probably won't be changing.
 progressInterval = 1
 logBuffer = 1
+logging.basicConfig(level=logging.CRITICAL)
 
 # TODO: reorganize so all args are in one file - the only command line option is one settings file name.
 # file with a simple list of networks to test, 1 per line. path taken from json
@@ -123,7 +125,7 @@ def runOnePosition(epd_field: str,
     infoForDebug = []
     # the detailedMoveInfo is available only when a limit is set AND then after it exits the loop.
     limit = chess.engine.Limit(nodes=maxNodes)
-    with engine.analysis(board, limit, multipv=3, info=chess.engine.INFO_ALL) as analysis:
+    with engine.analysis(board, limit, multipv=3, info=chess.engine.INFO_ALL, game=position_id) as analysis:
         for info in analysis:
 
             # Unusual stop condition.
