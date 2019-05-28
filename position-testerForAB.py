@@ -137,17 +137,17 @@ def runOnePosition(epd_field: str,
             if info.get("nodes", 0) > maxNodes3:
                 break
             # is_first_pv: bool = info['multipv'] == 1
-            # agree = is_first_pv and " " + board.san(info['pv'][0]) in tcec_moves
+            # agree = is_first_pv and " " + board.san(info['pv'][0]) in iccf_moves
             if "pv" not in info:
                 continue
-            agree = board.san(info['pv'][0]) in tcec_moves
+            agree = board.san(info['pv'][0]) in iccf_moves
             if agree:
                 count_found += 1
             # if is_first_pv:
-            #    print (info['multipv'], board.san(info['pv'][0]), tcec_moves,
+            #    print (info['multipv'], board.san(info['pv'][0]), iccf_moves,
             #    info.get('score'), info.get("nodes", 0), info['time'])
             #    atest = board.san(info['pv'][0])
-            #    btest = tcec_moves
+            #    btest = iccf_moves
 
             if agree and stop_first_found:
                 break
@@ -167,10 +167,10 @@ def runOnePosition(epd_field: str,
         mpv.append([move, score])
     mpv2 = json.dumps(mpv)
     # TODO this is header print line
-    #  print("agree, tcec_moves, nodesUsed, positionId, toPlay, multiPv[move, eval cp]")
+    #  print("agree, iccf_moves, nodesUsed, positionId, toPlay, multiPv[move, eval cp]")
     nodesUsed = int(info.get('nodes'))
 
-    return f'{agree2}, {str.strip(tcec_moves)}, {nodesUsed}, {position_id}, {turn}, {mpv2}'
+    return f'{agree2}, {str.strip(iccf_moves)}, {nodesUsed}, {position_id}, {turn}, {mpv2}'
 
 
 # run one pass through an EPD tactics file with specific parameters
@@ -209,12 +209,12 @@ def runTactics(epdFile,
     for line2 in epdfl:
         epd_field = line2.split("bm ")[0].strip()
         positionId = line2.split(";")[1].strip()
-        tcec_moves = " " + str(re.search('bm (.*);', line2).group(1)) + " "  # spaces must surround moves
+        iccf_moves = " " + str(re.search('bm (.*);', line2).group(1)) + " "  # spaces must surround moves
         # TODO add ECO so it can be entered for each position output in log
         positionResult = runOnePosition(epd_field,
                                         maxNodes,
                                         positionId,
-                                        tcec_moves,
+                                        iccf_moves,
                                         stop_first,
                                         found_three_times,
                                         engine4)

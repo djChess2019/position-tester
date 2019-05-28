@@ -33,7 +33,7 @@ import logging
 progressInterval = 1
 logBuffer = 1
 logging.basicConfig(level=logging.CRITICAL)
-
+countofBigEvalDifference = 0
 # TODO: reorganize so all args are in one file - the only command line option is one settings file name.
 # file with a simple list of networks to test, 1 per line. path taken from json
 netsFileName = sys.argv[1]
@@ -116,6 +116,7 @@ def writeLog(logFile2, logList):
 def runOnePosition(epd_field: str,
                    position_id: str,
                    tcec_moves: str,
+                   countofBigEvalDifference,
                    engine: chess.engine.SimpleEngine):
     board = chess.Board(epd_field)
     count_found: int = 0
@@ -168,6 +169,23 @@ def runOnePosition(epd_field: str,
         verbose.pop(0)
         # "(P: 7.17%)"
         probability = round(float(re.findall("P: (.*?)(?=%)", verbose[1])[0].strip()) / 100, 4)
+    # fill in mpv when it is short.
+    # and will checking to see about the fill in just check for big eval also
+    for x in range(3):
+        try:
+            if int(mpv[x][1]) > 300 and x == 0:
+                print()
+                countofBigEvalDifference += 1
+                print(f"{countofBigEvalDifference}big eval pv {x} for {position_id}, {x}, {int(mpv[x][1])}")
+                continue
+            if x == 0 and abs(int(mpv[0][1]) - int(mpv[1][1])) > 200:
+                print()
+                countofBigEvalDifference += 1
+                print(f"{countofBigEvalDifference}big difference between pv 1 and 2 for position_id:{position_id}, {
+                mpv[0][1]} , {mpv[1][1]}")
+        except IndexError:
+            mpv.append([" ", "0"])
+        continue
 
     # for i, val in enumerate(list):
     #     val = val.remove(")")
@@ -211,7 +229,9 @@ def runTactics(epdFile,
                logFile1,
                lc0_cmd2,
                weightPath2,
-               weight2):
+               weight2,
+               countofBigEvalDifference
+               ):
     logLines = ["result; TcecMove(s); nodes used; position_id; toPlay; pvList; piece_count; agreementNodesList"]
     appendix2 = " nodes=" + str(maxNodes)
     logFile1.write("#### " + lc0_cmd2 + appendix2 + "\n")
@@ -223,9 +243,9 @@ def runTactics(epdFile,
     engine = chess.engine.SimpleEngine.popen_uci(lc0_cmd2)
     for opt in params:
         if opt not in engine.options:
-            print(f"you used '{opt}; in you setting.json available options are:")
-    for o in engine.options:
-        print(o)
+            for o in engine.options:
+                print(o)
+            print(f"you used '{opt}; in you setting.json available options are above")
     params["VerboseMoveStats"] = True
     params["WeightsFile"] = weightPath2 + weight2
     params["HistoryFill"] = "always"
@@ -253,6 +273,7 @@ def runTactics(epdFile,
         positionResult = runOnePosition(epd_field,
                                         positionId,
                                         tcec_moves,
+                                        countofBigEvalDifference,
                                         engine)
 
         if positionResult[0] == 1:
@@ -305,6 +326,7 @@ for weight in weights:  # loop over network weights, running problem set for eac
         epdPath,
         positionTestLog,
         lc0_cmd,
+        countofBigEvalDifference,
         weightPath,
         weight
     )
