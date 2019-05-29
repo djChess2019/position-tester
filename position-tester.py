@@ -33,7 +33,8 @@ import logging
 progressInterval = 1
 logBuffer = 1
 logging.basicConfig(level=logging.CRITICAL)
-countofBigEvalDifference = 0
+countOfBigEvalDifference = 0
+totalNodesForFirstFind = 0
 # TODO: reorganize so all args are in one file - the only command line option is one settings file name.
 # file with a simple list of networks to test, 1 per line. path taken from json
 netsFileName = sys.argv[1]
@@ -72,7 +73,7 @@ if "tc" in params:
     del params["tc"]
 if not appendingOut:  # write a header if this is a new output file
     # TODO correct outFile header line.
-    outFile.write("network\treq_nodes\tavg_nodes\tagreed\ttotal\tpercent\n")
+    outFile.write("network\treq_nodes\tavg_nodes\tagreed\ttotal\tpercent\tavg_1st_agree\n")
     outFile.flush()
 
 # get the rest of the options in lexicograph order
@@ -116,8 +117,8 @@ def writeLog(logFile2, logList):
 def runOnePosition(epd_field: str,
                    position_id: str,
                    tcec_moves: str,
-                   countofBigEvalDifference,
                    engine: chess.engine.SimpleEngine):
+    global countOfBigEvalDifference
     board = chess.Board(epd_field)
     count_found: int = 0
     agree = False
@@ -171,24 +172,22 @@ def runOnePosition(epd_field: str,
         probability = round(float(re.findall("P: (.*?)(?=%)", verbose[1])[0].strip()) / 100, 4)
     # fill in mpv when it is short.
     # and will checking to see about the fill in just check for big eval also
+
     for x in range(3):
         try:
             if int(mpv[x][1]) > 300 and x == 0:
-                print()
-                countofBigEvalDifference += 1
-                print(f"{countofBigEvalDifference}big eval pv {x} for {position_id}, {x}, {int(mpv[x][1])}")
+                countOfBigEvalDifference += 1
+                print(f"\n{countOfBigEvalDifference}. Big eval for {position_id}, {int(mpv[x][1])}")
                 continue
             if x == 0 and abs(int(mpv[0][1]) - int(mpv[1][1])) > 200:
                 print()
-                countofBigEvalDifference += 1
-                print(f"{countofBigEvalDifference}big difference between pv 1 and 2 for position_id:{position_id}, {
-                mpv[0][1]} , {mpv[1][1]}")
+                countOfBigEvalDifference += 1
+                print(f"{countOfBigEvalDifference}. Big difference between pv 1 and 2 for position_id:{position_id},"
+                      f" {mpv[0][1]} , {mpv[1][1]}")
         except IndexError:
             mpv.append([" ", "0"])
         continue
 
-    # for i, val in enumerate(list):
-    #     val = val.remove(")")
     r = [int(agree2),
          str.strip(tcec_moves),
          nodesUsed,
@@ -210,16 +209,16 @@ def runOnePosition(epd_field: str,
     return r
 
 
-def enginePlay(engine, board, tcecMoves, positionId):
-    result = engine.play(board, chess.engine.Limit(nodes=maxNodes), info=chess.engine.INFO_ALL)
-    agree3 = " " + board.san(result.info.get('pv')[0]) in tcecMoves
-    nodesUsed = result.info.get('nodes')
-    turn = "W" if board.turn == chess.WHITE else "B"
-    pieces = board.piece_map().__len__()
-    verbose = result.info.get("string")
-    agree4 = "1" if agree3 else "0"
-    return f'{agree4}, {str.strip(tcecMoves)}, {nodesUsed}, {positionId}, \
-    {turn},  {pieces}, {weight}, {verbose} '
+# def enginePlay(engine, board, tcecMoves, positionId):
+#     result = engine.play(board, chess.engine.Limit(nodes=maxNodes), info=chess.engine.INFO_ALL)
+#     agree3 = " " + board.san(result.info.get('pv')[0]) in tcecMoves
+#     nodesUsed = result.info.get('nodes')
+#     turn = "W" if board.turn == chess.WHITE else "B"
+#     pieces = board.piece_map().__len__()
+#     verbose = result.info.get("string")
+#     agree4 = "1" if agree3 else "0"
+#     return f'{agree4}, {str.strip(tcecMoves)}, {nodesUsed}, {positionId}, \
+#     {turn},  {pieces}, {weight}, {verbose} '
 
 
 # run one pass through an EPD tactics file with specific parameters
@@ -229,26 +228,34 @@ def runTactics(epdFile,
                logFile1,
                lc0_cmd2,
                weightPath2,
-               weight2,
-               countofBigEvalDifference
+               weight2
                ):
-    logLines = ["result; TcecMove(s); nodes used; position_id; toPlay; pvList; piece_count; agreementNodesList"]
-    appendix2 = " nodes=" + str(maxNodes)
-    logFile1.write("#### " + lc0_cmd2 + appendix2 + "\n")
-    sys.stderr.write(lc0_cmd2 + appendix2 + "\n")
+    logLines = ['#### agree, tcec_moves, nodesUsed, position_id, toPlay, pieces Count, weight, mpv 1 move, mpv 1 eval',
+                '#### mpv 2 move, mpv 2 eval,  mpv 3 move ; mpv3 eval, probability (P), count of agree List, agree List']
+    global countOfBigEvalDifference
+    countOfBigEvalDifference = 0
+    global totalNodesForFirstFind
+    totalNodesForFirstFind = 0
+    #    logLines = ["result; TcecMove(s); nodes used; position_id; toPlay; pvList; piece_count; agreementNodesList"]
 
-    # TODO add options back in
-    # it can't be in after file name like it was
-    # options2 = " --weights=" + weightPath2 + weight2 + " --history-fill=always " + optString2
     engine = chess.engine.SimpleEngine.popen_uci(lc0_cmd2)
     for opt in params:
         if opt not in engine.options:
             for o in engine.options:
                 print(o)
             print(f"you used '{opt}; in you setting.json available options are above")
+
+    # add in the extra fixed params
     params["VerboseMoveStats"] = True
     params["WeightsFile"] = weightPath2 + weight2
     params["HistoryFill"] = "always"
+
+    # put headers in the log and on screen.
+    appendix2 = f" nodes= {str(maxNodes)} weight= {weight} earlyStop {earlyStop}"
+    logFile1.write("#### " + lc0_cmd2 + appendix2 + "\n")
+    sys.stderr.write(f"{lc0_cmd2}\n  nodes:{maxNodes}\n  weight:{weight}\n  earlyStop:{earlyStop}")
+    logFile1.write(f"#### {json.dumps(params)}\n")
+    sys.stderr.write(json.dumps(params, separators=(', ', ": "), indent=5))
 
     engine.configure(params)
     # TODO use a more generic method. epdfLines = readAllLineFrom(epdFileName)  probably not on level of forEachNet
@@ -266,19 +273,31 @@ def runTactics(epdFile,
 
     for line2 in epdfl:
         epd_field = line2.split("bm ")[0].strip()
+
+        # if line2 == epdfl[5]: #helpful to debug just 5 lines of position set
+        #    break
+
         positionId = line2.split(";")[1].strip()
         tcec_moves = " " + str(re.search('bm (.*);', line2).group(1)) + " "  # spaces must surround moves
         board = chess.Board(epd_field)
         # positionResult = enginePlay(engine, board, tcec_moves, positionId)
-        positionResult = runOnePosition(epd_field,
-                                        positionId,
-                                        tcec_moves,
-                                        countofBigEvalDifference,
-                                        engine)
+
+        # ---------------- RUN POSITION ---------------
+        # noinspection PyBroadException
+        try:
+            positionResult = runOnePosition(epd_field,
+                                            positionId,
+                                            tcec_moves,
+                                            engine)
+        # it is intentional to catch all exceptions and move to next line
+        except:
+            print("error in runOnePosition for positionID: {positionID}")
+            continue
 
         if positionResult[0] == 1:
             right += 1
-
+        if positionResult[14]:  # count of finds
+            totalNodesForFirstFind += positionResult[15][0]
         nodesUsed.append(positionResult[2])
         logLines.append(json.dumps(positionResult))
 
@@ -286,20 +305,20 @@ def runTactics(epdFile,
             writeLog(logFile1, logLines)
             logLines = []
         total2 += 1
-
         if total2 % progressInterval == 0:
             elapsedTime = datetime.datetime.now() - startTime
             problems = len(epdfl)
             timePerProblem = elapsedTime / total2
             expectedEndTime = ((timePerProblem * problems) + startTime).isoformat(' ', 'minutes')
             percentAgree = str(round(right / total2 * 100, 2))
+            # stop division by 0 when debugging and non are right.
+            if right == 0:
+                right = 1
             outv2 = ["\r" + str(right) + "/" + str(total2),
                      " Agree:" + percentAgree + "%",
                      "Expected end of this run: " + expectedEndTime,
-                     "average nodes per move: " + str(int(round(np.average(nodesUsed)))),
-                     "earlyStop: " + str(earlyStop * 100) + "%",
-                     "maxNodes: " + str(maxNodes),
-                     "net: " + weight + "                     "
+                     "average nodes per move: " + "%.0f" % (np.average(nodesUsed)),
+                     "average nodes first found of agreed: " + "%.0f" % (totalNodesForFirstFind / right)
                      ]
             sys.stderr.write(", ".join(outv2))
             sys.stderr.flush()
@@ -326,12 +345,14 @@ for weight in weights:  # loop over network weights, running problem set for eac
         epdPath,
         positionTestLog,
         lc0_cmd,
-        countofBigEvalDifference,
         weightPath,
         weight
     )
+    # stop error for testing when 0 agree
+    if agreed == 0:
+        agreed = 1
     outv = [weight, str(maxNodes), str(int(round(np.average(nodesUsedList)))), str(agreed), str(total),
-            "%.3f" % ((100.0 * agreed) / total)]
+            "%.3f" % ((100.0 * agreed) / total), "%.3f" % (totalNodesForFirstFind / agreed)]
     outFile.write("\t".join(outv) + "\n")
     outFile.flush()
     sys.stdout.write("\n\n")
