@@ -56,6 +56,7 @@ epdPath = params["EPD"]
 del params["EPD"]
 lc0_cmd = params["Lc0"]
 del params["Lc0"]
+# TODO this is where I will check for engine and set bool isLeela
 weightPath = params["weights_path"]
 del params["weights_path"]
 nodes = None
@@ -119,7 +120,8 @@ def fillAgreeList(board, info, iccf_moves, agreeList, prevAgreement):
         agreeList.append(toAppend)
     # prevAgreement is really used, it is just in next loop iteration
     prevAgreement = agree
-    return agree, prevAgreement
+    return agree, prevAgreement, nodesUsed
+
 
 def runOnePosition(epd_field: str,
                    position_id: str,
@@ -127,8 +129,6 @@ def runOnePosition(epd_field: str,
                    engine: chess.engine.SimpleEngine):
     global countOfBigEvalDifference
     board = chess.Board(epd_field)
-
-    agree = False
     agreeList = []
     prevAgreement = False
     infoForDebug = []
@@ -142,14 +142,15 @@ def runOnePosition(epd_field: str,
             if isFirstPv:
                 # disable this in production only used with debugger break points
                 # infoForDebug.append(info)
-                agree, prevAgreement = fillAgreeList(board, info, iccf_moves, agreeList, prevAgreement)
-
+                agree, prevAgreement, nodesUsed = fillAgreeList(board, info, iccf_moves, agreeList, prevAgreement)
+                if nodesUsed > maxNodes * earlyStop:
+                    break
 
     turn = "W" if board.turn == chess.WHITE else "B"
     # I there are two paths to here, on through the analaysis loop, the other in engine.Limit
     # engine.Limit permists use of the Leela details,
     # it also requires setting some variables here also.
-    agree, prevAgreement = fillAgreeList(board, analysis.info, iccf_moves, agreeList, prevAgreement)
+    agree, prevAgreement, nodesUsed = fillAgreeList(board, analysis.info, iccf_moves, agreeList, prevAgreement)
     agree2 = "1" if agree else "0"
     mpv = []
     for pv in analysis.multipv:
@@ -289,8 +290,8 @@ def runTactics(epdFile,
                                             iccf_moves,
                                             engine)
         # it is intentional to catch all exceptions and move to next line
-        except:
-            print("error in runOnePosition for positionID: {positionID}")
+        except IndexError:
+            print(f"error in runOnePosition for positionID: {positionId}")
             continue
 
         if positionResult[0] == 1:
