@@ -101,11 +101,6 @@ theOpenFile.close()
 #############################################################################
 ########### stuff for each run
 #############################################################################
-def movesToString(moveList):
-    mls = []
-    for m in moveList:
-        mls.append(str(m))
-    return " ".join(mls)
 
 
 def writeLog(logFile2, logList):
@@ -114,13 +109,25 @@ def writeLog(logFile2, logList):
     logFile2.flush()  # so it can be monitored during run
 
 
+def fillAgreeList(board, info, iccf_moves, agreeList, prevAgreement):
+    agree = " " + board.san(info.get('pv')[0]) in iccf_moves
+
+    nodesUsed = info.get('nodes')
+    agreedLikePrevious = agree == prevAgreement
+    if not agreedLikePrevious:
+        toAppend = nodesUsed if agree else (nodesUsed * -1)
+        agreeList.append(toAppend)
+    # prevAgreement is really used, it is just in next loop iteration
+    prevAgreement = agree
+    return agree, prevAgreement
+
 def runOnePosition(epd_field: str,
                    position_id: str,
-                   tcec_moves: str,
+                   iccf_moves: str,
                    engine: chess.engine.SimpleEngine):
     global countOfBigEvalDifference
     board = chess.Board(epd_field)
-    count_found: int = 0
+
     agree = False
     agreeList = []
     prevAgreement = False
@@ -133,46 +140,38 @@ def runOnePosition(epd_field: str,
             # Unusual stop condition.
             isFirstPv: bool = info.get('multipv') == 1
             if isFirstPv:
-                # TODO disable this in production only used with debugger break points
-                infoForDebug.append(info)
-                agree = " " + board.san(info.get('pv')[0]) in tcec_moves
+                # disable this in production only used with debugger break points
+                # infoForDebug.append(info)
+                agree, prevAgreement = fillAgreeList(board, info, iccf_moves, agreeList, prevAgreement)
 
-                nodesUsed = info.get('nodes')
-                agreedLikePrevious = agree == prevAgreement
-                if not agreedLikePrevious:
-                    append = nodesUsed if agree else (nodesUsed * -1)
-                    agreeList.append(append)
-                # prevAgreement is really used, it is just in next loop iteration
-                prevAgreement = agree
-                nodesUsed = info.get("nodes")
-                if agree and (nodesUsed >= maxNodes * earlyStop):
-                    break
-                elif nodesUsed >= maxNodes:
-                    break
 
     turn = "W" if board.turn == chess.WHITE else "B"
+    # I there are two paths to here, on through the analaysis loop, the other in engine.Limit
+    # engine.Limit permists use of the Leela details,
+    # it also requires setting some variables here also.
+    agree, prevAgreement = fillAgreeList(board, analysis.info, iccf_moves, agreeList, prevAgreement)
     agree2 = "1" if agree else "0"
     mpv = []
-    for info in analysis.multipv:
-        score = str(info['score'].relative.cp)
-        move = board.san(info['pv'][0])
+    for pv in analysis.multipv:
+        score = str(pv['score'].relative.cp)
+        move = board.san(pv['pv'][0])
         mpv.append([move, score])
-    mpv2 = json.dumps(mpv)
+
     pieces = board.piece_map().__len__()
 
     # get the verbose-move-stats this is not yet finished
+    # i decided I only want P for now
     v = analysis.inner.info.get('string')
     probability = 0
     if v:
+        # values inside of quotes
         verbose = re.findall(r"\(.*?\)", v)
-        n = re.findall(r"N:.*?\)", v)
-        #
         verbose.pop(0)
-        # "(P: 7.17%)"
+        # example "(P: 7.17%)"
+        # in verbose[1] find P don't include the %, [0] is first found.
         probability = round(float(re.findall("P: (.*?)(?=%)", verbose[1])[0].strip()) / 100, 4)
     # fill in mpv when it is short.
     # and will checking to see about the fill in just check for big eval also
-
     for x in range(3):
         try:
             if int(mpv[x][1]) > 300 and x == 0:
@@ -189,7 +188,7 @@ def runOnePosition(epd_field: str,
         continue
 
     r = [int(agree2),
-         str.strip(tcec_moves),
+         str.strip(iccf_moves),
          nodesUsed,
          int(position_id),
          turn,
@@ -209,15 +208,15 @@ def runOnePosition(epd_field: str,
     return r
 
 
-# def enginePlay(engine, board, tcecMoves, positionId):
+# def enginePlay(engine, board, iccfMoves, positionId):
 #     result = engine.play(board, chess.engine.Limit(nodes=maxNodes), info=chess.engine.INFO_ALL)
-#     agree3 = " " + board.san(result.info.get('pv')[0]) in tcecMoves
+#     agree3 = " " + board.san(result.info.get('pv')[0]) in iccfMoves
 #     nodesUsed = result.info.get('nodes')
 #     turn = "W" if board.turn == chess.WHITE else "B"
 #     pieces = board.piece_map().__len__()
 #     verbose = result.info.get("string")
 #     agree4 = "1" if agree3 else "0"
-#     return f'{agree4}, {str.strip(tcecMoves)}, {nodesUsed}, {positionId}, \
+#     return f'{agree4}, {str.strip(iccfMoves)}, {nodesUsed}, {positionId}, \
 #     {turn},  {pieces}, {weight}, {verbose} '
 
 
@@ -230,13 +229,13 @@ def runTactics(epdFile,
                weightPath2,
                weight2
                ):
-    logLines = ['#### agree, tcec_moves, nodesUsed, position_id, toPlay, pieces Count, weight, mpv 1 move, mpv 1 eval',
+    logLines = ['#### agree, iccf_moves, nodesUsed, position_id, toPlay, pieces Count, weight, mpv 1 move, mpv 1 eval',
                 '#### mpv 2 move, mpv 2 eval,  mpv 3 move ; mpv3 eval, probability (P), count of agree List, agree List']
     global countOfBigEvalDifference
     countOfBigEvalDifference = 0
     global totalNodesForFirstFind
     totalNodesForFirstFind = 0
-    #    logLines = ["result; TcecMove(s); nodes used; position_id; toPlay; pvList; piece_count; agreementNodesList"]
+    #    logLines = ["result; iccfMove(s); nodes used; position_id; toPlay; pvList; piece_count; agreementNodesList"]
 
     engine = chess.engine.SimpleEngine.popen_uci(lc0_cmd2)
     for opt in params:
@@ -278,16 +277,16 @@ def runTactics(epdFile,
         #    break
 
         positionId = line2.split(";")[1].strip()
-        tcec_moves = " " + str(re.search('bm (.*);', line2).group(1)) + " "  # spaces must surround moves
+        iccf_moves = " " + str(re.search('bm (.*);', line2).group(1)) + " "  # spaces must surround moves
         board = chess.Board(epd_field)
-        # positionResult = enginePlay(engine, board, tcec_moves, positionId)
+        # positionResult = enginePlay(engine, board, iccf_moves, positionId)
 
         # ---------------- RUN POSITION ---------------
         # noinspection PyBroadException
         try:
             positionResult = runOnePosition(epd_field,
                                             positionId,
-                                            tcec_moves,
+                                            iccf_moves,
                                             engine)
         # it is intentional to catch all exceptions and move to next line
         except:

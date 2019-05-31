@@ -113,7 +113,7 @@ def writeLog(logFile2, logList):
 def runOnePosition(epd_field: str,
                    maxNodes3,
                    position_id: str,
-                   tcec_moves: str,
+                   iccf_moves: str,
                    stop_first_found: bool,
                    found_three_times2: bool,
                    engine2: chess.engine.SimpleEngine):
