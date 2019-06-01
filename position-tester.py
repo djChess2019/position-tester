@@ -204,7 +204,11 @@ def runOnePosition(positionLine: str, engine: chess.engine.SimpleEngine):
     agree2 = "1" if agree else "0"
     mpv = []
     for pv in analysis.multipv:
-        score = str(pv['score'].relative.cp)
+        if type(pv['score'].relative) == chess.engine.Mate:
+            score = 9999
+        else:
+            score = str(pv['score'].relative.cp)
+
         move = board.san(pv['pv'][0])
         mpv.append([move, score])
 
@@ -214,6 +218,7 @@ def runOnePosition(positionLine: str, engine: chess.engine.SimpleEngine):
     # i decided I only want P for now
     verbose = analysis.inner.info.get('string')
     probability = getProbability(verbose) if verbose else 0
+
 
     # fill in mpv when it is short.
     # and will checking to see about the fill in just check for big eval also
@@ -365,6 +370,8 @@ if isLeela:
         sys.stdout.write("\n\n")
         runNum += 1
 else:
+    startTime = datetime.datetime.now()
+    weight = " "
     agreed, total, nodesUsedList = runOnePositionSet()
 positionLogFile.close()
 outFile.close()

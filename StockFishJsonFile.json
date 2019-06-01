@@ -1,7 +1,7 @@
 {
-  "EPD": "F:\\leela\\github\\position-tester\\IccfCombined-1NodeReduced-113k.txt",
+  "EPD": "EasyDifficulty.txt",
   "enginePath": "C:\\engines\\stockfish_17061704_x64_modern.exe",
-  "nodes": 100000,
-  "stop_first": 1,
-  "threads": 4
+  "nodes": 1000,
+  "earlyStop": 1,
+  "threads": 1
 }
