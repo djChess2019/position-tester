@@ -73,10 +73,12 @@ epdPath = params["EPD"]
 del params["EPD"]
 enginePath = params["enginePath"]
 del params["enginePath"]
-if enginePath.contains("lc0"):
-    isLeela = True
-    enginePath = params.get("lc0")
+if "lc0" in params:
+    enginePath = params["lc0"]
     del params["lc0"]
+if "lc0" in enginePath:
+    isLeela = True
+
 else:
     isLeela = False
 
@@ -148,7 +150,9 @@ def readPositions():
 
 
 def fillAgreeList(board, info, iccf_moves, agreeList, prevAgreement):
-    agree = " " + board.san(info.get('pv')[0]) in iccf_moves
+    engineMove = " " + board.san(info.get('pv')[0])
+    goal = iccf_moves
+    agree = engineMove in iccf_moves
 
     nodesUsed = info.get('nodes')
     agreedLikePrevious = agree == prevAgreement
@@ -169,7 +173,7 @@ def getProbability(verbose):
     return probability
 
 
-def runOnePosition(positionLine, engine: chess.engine.SimpleEngine):
+def runOnePosition(positionLine: str, engine: chess.engine.SimpleEngine):
     fen = positionLine.split("bm ")[0].strip()
     positionId = positionLine.split(";")[1].strip()
     iccf_moves = " " + str(re.search('bm (.*);', positionLine).group(1)) + " "  # spaces must surround moves
@@ -258,7 +262,7 @@ def validateEngineParameters(engine):
             for o in engine.options:
                 print(o)
             print(f"you used '{opt}; in you setting.json available options are above")
-        exit()
+            exit()
 
 
 # put headers in the log and on screen.

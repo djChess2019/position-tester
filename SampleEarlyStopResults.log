@@ -1,5 +1,5 @@
 #### F:\leela\lc0-v0.20.2-t40B\lc0.exe nodes=100
-result; TcecMove(s); nodes used; position_id; toPlay; pvList; piece_count; agreementNodesList
+result; iccfMove(s); nodes used; position_id; toPlay; pvList; piece_count; agreementNodesList
 1, cxd4, 132, 1, W, [["cxd4", "-35"], ["Ncxd4", "-64"], ["Nfxd4", "-100"]],[3, -6, 132], 27, 41800
 1, Bd6, 160, 2, W, [["Bd6", "108"], ["Ba7", "-95"], ["Kg2", "-121"]],[3], 17, 41800
 0, Ke1, 127, 3, W, [["Kg1", "142"], ["R1c2", "96"], ["R5c2", "84"]],[], 22, 41800
