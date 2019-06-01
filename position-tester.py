@@ -8,6 +8,8 @@ import json
 import datetime
 import logging
 
+logging.basicConfig(level=logging.CRITICAL)
+
 #  TODO: this is the outline of how I feel it should work, program isn't structured to be like this yet.
 #  these fileNames are contained in position-tester-settings.yaml
 #  required files. 	1. an engine one setting for an engine is an optional single paramSetup
@@ -20,94 +22,129 @@ import logging
 # for each engine
 #     NOTE: an engine is exe but not the params
 #     NOTE: for leela --history-fill=always is hard coded - no need for having it set in .json tc
-#     NOTE tc is never used for any engine always nodes searched
+#     NOTE tc is never used for any engine always nodes searched, I may put tc back in it is a way to
+#           check cross runs, 10b 20b and 40b, during param testing it may help. speed matters some.
+#
 # 	- for each param file (the param.json my have a network.path and/or network.list)
 # 		NOTE: to test params auto create different param.files and add a paramFileList in position-tester-settings.json
-#      - for each network (if NN). TODO: When missing the networkList file try exe. and query response to see what it found.
+#      - for each network (if NN).
 #  	      o send header to log and summary as needed
 #         o for each position in file
-#            + engine analized for xnodes and then sends the result to log
-#         o send the sumary rusults
+#            + engine analyzed for x nodes and then sends the result to log
+#         o send the summary results
 
 # as of May 16, 2019 these are up to avoid magic strings, but probably won't be changing.
-progressInterval = 1
-logBuffer = 1
-logging.basicConfig(level=logging.CRITICAL)
-countOfBigEvalDifference = 0
-totalNodesForFirstFind = 0
+
+
+def writeLog(logList):
+    # uses the global open file positionLogFile
+    for val in logList:
+        positionLogFile.write(val + "\n")
+    positionLogFile.flush()  # so it can be monitored during run
+
+
+# ############### constants
+class CONST(object):
+    __slots__ = ()
+    progressInterval = 1
+    logBuffer = 1
+
+
+CONST = CONST()
+
+# ########### comand line params
 # TODO: reorganize so all args are in one file - the only command line option is one settings file name.
 # file with a simple list of networks to test, 1 per line. path taken from json
-netsFileName = sys.argv[1]
+netsFileName = sys.argv[1]  # todo make this a list variable in Json
 # configuration file for paths and Leela parameters
-jsonFileName = sys.argv[2]
+jsonFileName = sys.argv[2]  # todo make this optional use a default Position-Tester-settings.json
 # the output file will have a bare bones summary of parameters and success rate
-outFileName = sys.argv[3]
+outFileName = sys.argv[3]  # todo make this a list variable in Json
 # the log file will contain a simple summary of failed problems
-logFileName = sys.argv[4]
+logFileName = sys.argv[4]  # todo make this a list variable in Json
 
-positionTestLog = open(logFileName, "a")
-appendingOut = os.path.exists(outFileName)
-outFile = open(outFileName, "a")
-
+# ############# globals - please note what function has edit
 # set up command and paths from the json file, removing them as you go
-# some commands are ok, even required in the .json but can't be in engine params this will be fixed with yaml
+# some commands are ok, even required in the .json but can't be in engine params
 params = json.load(open(jsonFileName))
+
+# required to be in .json but not part of engine params
 epdPath = params["EPD"]
 del params["EPD"]
-lc0_cmd = params["Lc0"]
-del params["Lc0"]
-# TODO this is where I will check for engine and set bool isLeela
-weightPath = params["weights_path"]
-del params["weights_path"]
-nodes = None
+enginePath = params["enginePath"]
+del params["enginePath"]
+if enginePath.contains("lc0"):
+    isLeela = True
+    enginePath = params.get("lc0")
+    del params["lc0"]
+else:
+    isLeela = False
+
 if "nodes" in params:
     maxNodes = params["nodes"]
     del params["nodes"]
 else:
     maxNodes = 100
+
+# weight path gets combined with weight in runOnePositionSet
+weights = []
+if isLeela:
+    weightPath = params["weights_path"]  # a required field for leela
+    del params["weights_path"]
+else:
+    weightPath = ""
+# earlyStop is in range of 0.01, it causes the analysis to stop when
+# there is an agreement of 0.01 * maxNodes
 if "earlyStop" not in params:
     earlyStop = 1
 else:
     earlyStop = params["earlyStop"]
     del params["earlyStop"]
+
+# tc is currently not used.
 if "tc" in params:
     del params["tc"]
-if not appendingOut:  # write a header if this is a new output file
-    # TODO correct outFile header line.
+
+countOfBigEvalDifference = 0  # changed in runOnePositionSet()
+totalNodesForFirstFind = 0  # changed in RunOnePositionSet()
+positionLogFile = open(logFileName, "a")  # only set here
+writeHeaderLineToSummaryOutput: bool = not os.path.exists(outFileName)  # only set here
+outFile = open(outFileName, "a")  # only Set here and left open
+
+if writeHeaderLineToSummaryOutput:  # write a header if this is a new output file
+    # TODO check outFile header line.
     outFile.write("network\treq_nodes\tavg_nodes\tagreed\ttotal\tpercent\tavg_1st_agree\n")
     outFile.flush()
 
-# get the rest of the options in lexicograph order
-pkeys = sorted(list(params.keys()))
-optList = []
-for pkey in pkeys:
-    if params[pkey] == "":
-        optList.append("--" + pkey)
-    else:
-        optList.append("--" + pkey + "=" + str(params[pkey]))
-optionString = " ".join(optList)
+# get the rest of the options in alphabetic order
+# todo remove this file and use a json list
+if isLeela:
 
-weights = []
-theOpenFile = open(netsFileName)
-for line in theOpenFile:
-    if len(line) > 2 and not line.startswith("#"):
-        netw = line.strip()
-        if not os.path.exists(weightPath + netw):
-            sys.stderr.write("weight file not found: " + weightPath + netw + "\n")
-            sys.exit(1)
-        weights.append(netw)
-theOpenFile.close()
+    networkFile = open(netsFileName)
+    for line in networkFile:
+        if len(line) > 2 and not line.startswith("#"):
+            network = line.strip()
+            if not os.path.exists(weightPath + network):
+                sys.stderr.write("weight file not found: " + weightPath + network + "\n")
+                sys.exit(1)
+            weights.append(network)
+    networkFile.close()
+    # add in the extra fixed params
+    params["VerboseMoveStats"] = True
+    params["HistoryFill"] = "always"
 
 
-#############################################################################
-########### stuff for each run
-#############################################################################
-
-
-def writeLog(logFile2, logList):
-    for val in logList:
-        logFile2.write(val + "\n")
-    logFile2.flush()  # so it can be monitored during run
+# using the global positionList fill it from the position file. Todo this seems like a waist of memory 100k??
+def readPositions():
+    global positionList
+    epdf = open(epdPath)  # only set here left open
+    epdfLines = epdf.readlines()
+    epdf.close()
+    positionList = []
+    for eline in epdfLines:
+        if not eline.startswith("#"):
+            positionList.append(eline)
+    sys.stderr.write(f"\n {len(positionList)}  problems... ")
 
 
 def fillAgreeList(board, info, iccf_moves, agreeList, prevAgreement):
@@ -123,18 +160,27 @@ def fillAgreeList(board, info, iccf_moves, agreeList, prevAgreement):
     return agree, prevAgreement, nodesUsed
 
 
-def runOnePosition(epd_field: str,
-                   position_id: str,
-                   iccf_moves: str,
-                   engine: chess.engine.SimpleEngine):
-    global countOfBigEvalDifference
-    board = chess.Board(epd_field)
+def getProbability(verbose):
+    # example "(P: 7.17%)"
+    # find P don't include the %, [0] is first found.
+    P = re.findall("P: (.*?)(?=%)", verbose)
+    p1 = float(P[0].strip())
+    probability = round(p1 / 100, 4)
+    return probability
+
+
+def runOnePosition(positionLine, engine: chess.engine.SimpleEngine):
+    fen = positionLine.split("bm ")[0].strip()
+    positionId = positionLine.split(";")[1].strip()
+    iccf_moves = " " + str(re.search('bm (.*);', positionLine).group(1)) + " "  # spaces must surround moves
+
+    board = chess.Board(fen)
     agreeList = []
     prevAgreement = False
-    infoForDebug = []
+    # infoForDebug = []
     # the detailedMoveInfo is available only when a limit is set AND then after it exits the loop.
     limit = chess.engine.Limit(nodes=maxNodes)
-    with engine.analysis(board, limit, multipv=3, info=chess.engine.INFO_ALL, game=position_id) as analysis:
+    with engine.analysis(board, limit, multipv=3, info=chess.engine.INFO_ALL, game=positionId) as analysis:
         for info in analysis:
 
             # Unusual stop condition.
@@ -162,28 +208,23 @@ def runOnePosition(epd_field: str,
 
     # get the verbose-move-stats this is not yet finished
     # i decided I only want P for now
-    v = analysis.inner.info.get('string')
-    probability = 0
-    if v:
-        # values inside of quotes
-        verbose = re.findall(r"\(.*?\)", v)
-        verbose.pop(0)
-        # example "(P: 7.17%)"
-        # in verbose[1] find P don't include the %, [0] is first found.
-        probability = round(float(re.findall("P: (.*?)(?=%)", verbose[1])[0].strip()) / 100, 4)
+    verbose = analysis.inner.info.get('string')
+    probability = getProbability(verbose) if verbose else 0
+
     # fill in mpv when it is short.
     # and will checking to see about the fill in just check for big eval also
     for x in range(3):
+        global countOfBigEvalDifference
         try:
             if int(mpv[x][1]) > 300 and x == 0:
                 countOfBigEvalDifference += 1
-                print(f"\n{countOfBigEvalDifference}. Big eval for {position_id}, {int(mpv[x][1])}")
+                # print(f"\n{countOfBigEvalDifference}. Big eval for {position_id}, {int(mpv[x][1])}")
                 continue
             if x == 0 and abs(int(mpv[0][1]) - int(mpv[1][1])) > 200:
-                print()
+                # print()
                 countOfBigEvalDifference += 1
-                print(f"{countOfBigEvalDifference}. Big difference between pv 1 and 2 for position_id:{position_id},"
-                      f" {mpv[0][1]} , {mpv[1][1]}")
+                # print(f"{countOfBigEvalDifference}. Big difference between pv 1 and 2 for position_id:{position_id},"
+                #    f" {mpv[0][1]} , {mpv[1][1]}")
         except IndexError:
             mpv.append([" ", "0"])
         continue
@@ -191,7 +232,7 @@ def runOnePosition(epd_field: str,
     r = [int(agree2),
          str.strip(iccf_moves),
          nodesUsed,
-         int(position_id),
+         int(positionId),
          turn,
          pieces,
          weight,
@@ -209,89 +250,55 @@ def runOnePosition(epd_field: str,
     return r
 
 
-# def enginePlay(engine, board, iccfMoves, positionId):
-#     result = engine.play(board, chess.engine.Limit(nodes=maxNodes), info=chess.engine.INFO_ALL)
-#     agree3 = " " + board.san(result.info.get('pv')[0]) in iccfMoves
-#     nodesUsed = result.info.get('nodes')
-#     turn = "W" if board.turn == chess.WHITE else "B"
-#     pieces = board.piece_map().__len__()
-#     verbose = result.info.get("string")
-#     agree4 = "1" if agree3 else "0"
-#     return f'{agree4}, {str.strip(iccfMoves)}, {nodesUsed}, {positionId}, \
-#     {turn},  {pieces}, {weight}, {verbose} '
-
-
-# run one pass through an EPD tactics file with specific parameters
-# returns (success, total, list of failures)
-# maxNodes must be provided tc is not used
-def runTactics(epdFile,
-               logFile1,
-               lc0_cmd2,
-               weightPath2,
-               weight2
-               ):
-    logLines = ['#### agree, iccf_moves, nodesUsed, position_id, toPlay, pieces Count, weight, mpv 1 move, mpv 1 eval',
-                '#### mpv 2 move, mpv 2 eval,  mpv 3 move ; mpv3 eval, probability (P), count of agree List, agree List']
-    global countOfBigEvalDifference
-    countOfBigEvalDifference = 0
-    global totalNodesForFirstFind
-    totalNodesForFirstFind = 0
-    #    logLines = ["result; iccfMove(s); nodes used; position_id; toPlay; pvList; piece_count; agreementNodesList"]
-
-    engine = chess.engine.SimpleEngine.popen_uci(lc0_cmd2)
+# explain to user why a parm isn't valid,
+# can only validate after engine is created.
+def validateEngineParameters(engine):
     for opt in params:
         if opt not in engine.options:
             for o in engine.options:
                 print(o)
             print(f"you used '{opt}; in you setting.json available options are above")
+        exit()
 
-    # add in the extra fixed params
-    params["VerboseMoveStats"] = True
-    params["WeightsFile"] = weightPath2 + weight2
-    params["HistoryFill"] = "always"
 
-    # put headers in the log and on screen.
-    appendix2 = f" nodes= {str(maxNodes)} weight= {weight} earlyStop {earlyStop}"
-    logFile1.write("#### " + lc0_cmd2 + appendix2 + "\n")
-    sys.stderr.write(f"{lc0_cmd2}\n  nodes:{maxNodes}\n  weight:{weight}\n  earlyStop:{earlyStop}")
-    logFile1.write(f"#### {json.dumps(params)}\n")
+# put headers in the log and on screen.
+def sendPositionSetHeaders():
+    writeLog(f"#### {enginePath}  earlyStop {earlyStop}")
+    writeLog(f"#### {json.dumps(params)}\n")
+    sys.stderr.write(f"{enginePath}\n  nodes:{maxNodes}\n  weight:{weight}\n  earlyStop:{earlyStop}")
     sys.stderr.write(json.dumps(params, separators=(', ', ": "), indent=5))
 
+
+# run one pass through an EPD tactics file with specific parameters
+# returns (percentAgree, total, nodesUsed)
+# maxNodes global must be provided tc is not used
+# all variables are global now
+def runOnePositionSet():
+    logLines = ['#### agree, iccf_moves, nodesUsed, position_id, toPlay, \
+                 pieces Count, weight, mpv 1 move, mpv 1 eval',
+                '#### mpv 2 move, mpv 2 eval,  mpv 3 move ; mpv3 eval \
+                probability (P), count of agree List, agree List']
+    global totalNodesForFirstFind
+    totalNodesForFirstFind = 0
+    engine = chess.engine.SimpleEngine.popen_uci(enginePath)
+    validateEngineParameters(engine)
     engine.configure(params)
     # TODO use a more generic method. epdfLines = readAllLineFrom(epdFileName)  probably not on level of forEachNet
-    epdf = open(epdFile)
-    epdfLines = epdf.readlines()
-    epdf.close()
-    epdfl = []
-    for eline in epdfLines:
-        if not eline.startswith("#"):
-            epdfl.append(eline)
-    sys.stderr.write("\n" + str(len(epdfl)) + " problems... ")
     right = 0
     total2 = 0
     nodesUsed = []
 
-    for line2 in epdfl:
-        epd_field = line2.split("bm ")[0].strip()
+    for positionLine in positionList:
 
-        # if line2 == epdfl[5]: #helpful to debug just 5 lines of position set
+        # if positionLine == positionList[5]: #helpful to debug just 5 lines of position set
         #    break
 
-        positionId = line2.split(";")[1].strip()
-        iccf_moves = " " + str(re.search('bm (.*);', line2).group(1)) + " "  # spaces must surround moves
-        board = chess.Board(epd_field)
-        # positionResult = enginePlay(engine, board, iccf_moves, positionId)
-
-        # ---------------- RUN POSITION ---------------
-        # noinspection PyBroadException
         try:
-            positionResult = runOnePosition(epd_field,
-                                            positionId,
-                                            iccf_moves,
-                                            engine)
+            positionResult = runOnePosition(positionLine, engine)
         # it is intentional to catch all exceptions and move to next line
+        # I do this so the rest of the positions can be worked even if one errors.
         except IndexError:
-            print(f"error in runOnePosition for positionID: {positionId}")
+            print(f"error in runOnePosition read position from screen output")
             continue
 
         if positionResult[0] == 1:
@@ -301,13 +308,13 @@ def runTactics(epdFile,
         nodesUsed.append(positionResult[2])
         logLines.append(json.dumps(positionResult))
 
-        if len(logLines) > logBuffer - 1:
-            writeLog(logFile1, logLines)
+        if len(logLines) > CONST.logBuffer - 1:
+            writeLog(logLines)
             logLines = []
         total2 += 1
-        if total2 % progressInterval == 0:
+        if total2 % CONST.progressInterval == 0:
             elapsedTime = datetime.datetime.now() - startTime
-            problems = len(epdfl)
+            problems = len(positionList)
             timePerProblem = elapsedTime / total2
             expectedEndTime = ((timePerProblem * problems) + startTime).isoformat(' ', 'minutes')
             percentAgree = str(round(right / total2 * 100, 2))
@@ -324,39 +331,36 @@ def runTactics(epdFile,
             sys.stderr.flush()
 
     engine.quit()
-    writeLog(positionTestLog, logLines)  # make sure the last set is written
+    writeLog(logLines)  # make sure the last set is written
     sys.stderr.write("\n")
     return right, total2, nodesUsed
 
 
-################################################################################
-##########  main  ##############################################################
-################################################################################
-runTot = len(weights)
-runNum = 1
-for weight in weights:  # loop over network weights, running problem set for each
-    startTime = datetime.datetime.now()
-    appendix = str(maxNodes) + " nodes"
-
-    sys.stdout.write("\nRun " + str(runNum) + " of " + str(runTot) + ": " + weight + ", " + appendix + "\n")
-    sys.stdout.flush()
-    # run the test for this network
-    agreed, total, nodesUsedList = runTactics(
-        epdPath,
-        positionTestLog,
-        lc0_cmd,
-        weightPath,
-        weight
-    )
-    # stop error for testing when 0 agree
-    if agreed == 0:
-        agreed = 1
-    outv = [weight, str(maxNodes), str(int(round(np.average(nodesUsedList)))), str(agreed), str(total),
-            "%.3f" % ((100.0 * agreed) / total), "%.3f" % (totalNodesForFirstFind / agreed)]
-    outFile.write("\t".join(outv) + "\n")
-    outFile.flush()
-    sys.stdout.write("\n\n")
-    runNum += 1
-
-positionTestLog.close()
+# ###############################################################################
+# #########  main  ##############################################################
+# ###############################################################################
+readPositions()
+if isLeela:
+    runTot = len(weights)  # the weights list is made about line 120 in global . why?
+    runNum = 1
+    for weight in weights:  # loop over network weights, running problem set for each
+        startTime = datetime.datetime.now()
+        appendix = str(maxNodes) + " nodes"
+        params["WeightsFile"] = weightPath + weight
+        sys.stdout.write("\nRun " + str(runNum) + " of " + str(runTot) + ": " + weight + ", " + appendix + "\n")
+        sys.stdout.flush()
+        # run the test for this network
+        agreed, total, nodesUsedList = runOnePositionSet()
+        # stop error for testing when 0 agree
+        if agreed == 0:
+            agreed = 1
+        outv = [weight, str(maxNodes), str(int(round(np.average(nodesUsedList)))), str(agreed), str(total),
+                "%.3f" % ((100.0 * agreed) / total), "%.3f" % (totalNodesForFirstFind / agreed)]
+        outFile.write("\t".join(outv) + "\n")
+        outFile.flush()
+        sys.stdout.write("\n\n")
+        runNum += 1
+else:
+    agreed, total, nodesUsedList = runOnePositionSet()
+positionLogFile.close()
 outFile.close()
