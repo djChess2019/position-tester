@@ -129,15 +129,14 @@ class LogOutput:
             listStr += "[]"
         else:
             for i in self.agreeList:
-                if i == 0:
-                    listStr += f"{str(i)}"
-                else:
-                    listStr += f", {str(i)}"
+                if self.agreeList.index(i) > 0:
+                    listStr += f", "
+                listStr += f"{str(i)}"
 
         # close the agree change list
         listStr += "]"
 
-        return listStr[-(len(listStr) - 2)]  # the opening ", "
+        return listStr[-(len(listStr) - 2):]  # the opening ", "
 
 
 # required to be in .json but not part of engine params
