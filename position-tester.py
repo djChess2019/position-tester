@@ -10,6 +10,7 @@ import logging
 
 logging.basicConfig(level=logging.CRITICAL)
 
+
 #  TODO: this is the outline of how I feel it should work, program isn't structured to be like this yet.
 #  these fileNames are contained in position-tester-settings.yaml
 #  required files. 	1. an engine one setting for an engine is an optional single paramSetup
@@ -67,6 +68,77 @@ logFileName = sys.argv[4]  # todo make this a list variable in Json
 # set up command and paths from the json file, removing them as you go
 # some commands are ok, even required in the .json but can't be in engine params
 params = json.load(open(jsonFileName))
+
+
+# positionResult
+# built in runOnePosition() this is what will go to the log, it is read in runOnePositionSet;
+
+
+class PvItem:
+    def __init__(self, move: str, score: int):
+        self.move = move
+        self.score = score
+
+    def __str__(self):
+        return f"{self.move}, {self.score}"
+
+
+class AgreeChange:
+    def __init__(self, nodes: int, move: str, score: int):
+        self.nodes = nodes
+        self.mv = move
+        self.score = score
+
+    def __str__(self):
+        return f"[{self.nodes}, {self.mv}, {self.score}]"
+
+
+class LogOutput:
+    def __init__(self, agree: int, iccfMoves: str, nodesUsed: int, positionId: str, turn: str,
+                 pieces: int, networkName: str, probability: float, mpv: [PvItem],
+                 agreeList: [AgreeChange]):
+        self.agree = agree
+        self.iccfMoves = iccfMoves
+        self.nodesUsed: int = nodesUsed
+        self.positionId: str = positionId
+        self.turn: str = turn
+        self.pieces: int = pieces
+        self.networkName: str = networkName
+        self.probability: float = probability
+        self.mpv: [PvItem] = mpv
+
+        self.agreeList: [AgreeChange] = agreeList
+
+    def __str__(self):
+
+        listStr = ""
+        for name, value in vars(self).items():
+            x = type(value)
+            if x == list:
+                continue
+            else:
+                listStr += f", {str(value)}"  # it is intentional that strings will not be quoted.
+
+        for i in self.mpv:
+            listStr += f", {str(i)}"
+        # add in the count of agreeChanges and an open list
+        listStr += f", {str(len(self.agreeList))}, ["
+
+        # no agreement list
+        if len(self.agreeList) == 0:
+            listStr += "[]"
+        else:
+            for i in self.agreeList:
+                if i == 0:
+                    listStr += f"{str(i)}"
+                else:
+                    listStr += f", {str(i)}"
+
+        # close the agree change list
+        listStr += "]"
+
+        return listStr[-(len(listStr) - 2)]  # the opening ", "
+
 
 # required to be in .json but not part of engine params
 epdPath = params["EPD"]
@@ -143,21 +215,28 @@ def readPositions():
     epdfLines = epdf.readlines()
     epdf.close()
     positionList = []
+    # todo make a class for positions
     for eline in epdfLines:
         if not eline.startswith("#"):
             positionList.append(eline)
     sys.stderr.write(f"\n {len(positionList)}  problems... ")
 
 
-def fillAgreeList(board, info, iccf_moves, agreeList, prevAgreement):
+def fillAgreeList(board, info, iccf_moves, agreeList: [AgreeChange], prevAgreement):
     engineMove = " " + board.san(info.get('pv')[0])
-    goal = iccf_moves
     agree = engineMove in iccf_moves
-
     nodesUsed = info.get('nodes')
     agreedLikePrevious = agree == prevAgreement
     if not agreedLikePrevious:
-        toAppend = nodesUsed if agree else (nodesUsed * -1)
+
+        nodes2 = nodesUsed if agree else (nodesUsed * -1)
+        if type(info['score']) == chess.engine.PovScore:
+            eval3 = info.get("score").relative.cp
+        elif type(info['score']) == chess.engine.Mate:
+            eval3 = 9999
+        else:
+            eval3 = " "
+        toAppend: AgreeChange = AgreeChange(nodes2, engineMove, eval3)
         agreeList.append(toAppend)
     # prevAgreement is really used, it is just in next loop iteration
     prevAgreement = agree
@@ -219,7 +298,6 @@ def runOnePosition(positionLine: str, engine: chess.engine.SimpleEngine):
     verbose = analysis.inner.info.get('string')
     probability = getProbability(verbose) if verbose else 0
 
-
     # fill in mpv when it is short.
     # and will checking to see about the fill in just check for big eval also
     for x in range(3):
@@ -237,24 +315,12 @@ def runOnePosition(positionLine: str, engine: chess.engine.SimpleEngine):
         except IndexError:
             mpv.append([" ", "0"])
         continue
+    outputMpv = [PvItem(mpv[0][0], mpv[0][1]),
+                 PvItem(mpv[1][0], mpv[1][1]),
+                 PvItem(mpv[2][0], mpv[2][1])]
 
-    r = [int(agree2),
-         str.strip(iccf_moves),
-         nodesUsed,
-         int(positionId),
-         turn,
-         pieces,
-         weight,
-         mpv[0][0],
-         int(mpv[0][1]),
-         mpv[1][0],
-         int(mpv[1][1]),
-         mpv[2][0],
-         int(mpv[2][1]),
-         probability,
-         agreeList.__len__(),
-         agreeList
-         ]
+    r = LogOutput(int(agree2), str.strip(iccf_moves), nodesUsed, positionId, turn, pieces,
+                  weight, probability, outputMpv, agreeList)
 
     return r
 
@@ -303,19 +369,20 @@ def runOnePositionSet():
         #    break
 
         try:
-            positionResult = runOnePosition(positionLine, engine)
+            positionResult: LogOutput = runOnePosition(positionLine, engine)
         # it is intentional to catch all exceptions and move to next line
         # I do this so the rest of the positions can be worked even if one errors.
         except IndexError:
             print(f"error in runOnePosition read position from screen output")
             continue
 
-        if positionResult[0] == 1:
+        if positionResult.agree == 1:
             right += 1
-        if positionResult[14]:  # count of finds
-            totalNodesForFirstFind += positionResult[15][0]
-        nodesUsed.append(positionResult[2])
-        logLines.append(json.dumps(positionResult))
+        if len(positionResult.agreeList) > 0:  # count of finds
+            bm: AgreeChange = positionResult.agreeList[0]
+            totalNodesForFirstFind += bm.nodes
+        nodesUsed.append(positionResult.nodesUsed)
+        logLines.append(str(positionResult))
 
         if len(logLines) > CONST.logBuffer - 1:
             writeLog(logLines)
