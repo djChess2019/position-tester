@@ -1,7 +1,7 @@
 {
   "EPD": "EasyDifficulty.txt",
   "enginePath": "C:\\engines\\stockfish_17061704_x64_modern.exe",
-  "nodes": 1000,
+  "nodes": 10000000,
   "earlyStop": 1,
   "threads": 1
 }
