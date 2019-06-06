@@ -226,7 +226,7 @@ def fillAgreeList(board, info, iccf_moves, moveChangeList: [BestMoveChange]):
     agree = engineMove in iccf_moves
     nodesUsed = info.get('nodes')
 
-    if len(moveChangeList) < 2:
+    if len(moveChangeList) == 0:
         isMoveChange = True
     else:
         isMoveChange = moveChangeList[len(moveChangeList) - 1].mv != moveChangeList[len(moveChangeList) - 2].mv
