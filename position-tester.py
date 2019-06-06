@@ -229,8 +229,7 @@ def fillAgreeList(board, info, iccf_moves, moveChangeList: [BestMoveChange]):
     if len(moveChangeList) == 0:
         isMoveChange = True
     else:
-        # current move not same as previous
-        isMoveChange = moveChangeList[len(moveChangeList) - 1].mv != engineMove
+        isMoveChange = moveChangeList[len(moveChangeList) - 1].mv == engineMove
     if isMoveChange:
         nodes2 = nodesUsed if agree else (nodesUsed * -1)
         if type(info['score']) == chess.engine.PovScore:
