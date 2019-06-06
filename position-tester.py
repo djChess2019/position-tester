@@ -226,10 +226,10 @@ def fillAgreeList(board, info, iccf_moves, moveChangeList: [BestMoveChange]):
     agree = engineMove in iccf_moves
     nodesUsed = info.get('nodes')
 
-    if len(moveChangeList) == 0:
+    if len(moveChangeList) < 2:
         isMoveChange = True
     else:
-        isMoveChange = moveChangeList[len(moveChangeList) - 1].mv == engineMove
+        isMoveChange = moveChangeList[len(moveChangeList) - 1].mv != moveChangeList[len(moveChangeList) - 2].mv
     if isMoveChange:
         nodes2 = nodesUsed if agree else (nodesUsed * -1)
         if type(info['score']) == chess.engine.PovScore:
