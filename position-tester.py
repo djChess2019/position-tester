@@ -83,7 +83,7 @@ class PvItem:
         return f"{self.move}, {self.score}"
 
 
-class AgreeChange:
+class BestMoveChange:
     def __init__(self, nodes: int, move: str, score: int):
         self.nodes = nodes
         self.mv = move
@@ -96,7 +96,7 @@ class AgreeChange:
 class LogOutput:
     def __init__(self, agree: int, iccfMoves: str, nodesUsed: int, positionId: str, turn: str,
                  pieces: int, networkName: str, probability: float, mpv: [PvItem],
-                 agreeList: [AgreeChange]):
+                 bestMoveChangeList: [BestMoveChange]):
         self.agree = agree
         self.iccfMoves = iccfMoves
         self.nodesUsed: int = nodesUsed
@@ -107,7 +107,7 @@ class LogOutput:
         self.probability: float = probability
         self.mpv: [PvItem] = mpv
 
-        self.agreeList: [AgreeChange] = agreeList
+        self.bestMoveChangeList: [BestMoveChange] = bestMoveChangeList
 
     def __str__(self):
 
@@ -122,14 +122,14 @@ class LogOutput:
         for i in self.mpv:
             listStr += f", {str(i)}"
         # add in the count of agreeChanges and an open list
-        listStr += f", {str(len(self.agreeList))}, ["
+        listStr += f", {str(len(self.bestMoveChangeList))}, ["
 
         # no agreement list
-        if len(self.agreeList) == 0:
+        if len(self.bestMoveChangeList) == 0:
             listStr += "[]"
         else:
-            for i in self.agreeList:
-                if self.agreeList.index(i) > 0:
+            for i in self.bestMoveChangeList:
+                if self.bestMoveChangeList.index(i) > 0:
                     listStr += f", "
                 listStr += f"{str(i)}"
 
@@ -221,25 +221,28 @@ def readPositions():
     sys.stderr.write(f"\n {len(positionList)}  problems... ")
 
 
-def fillAgreeList(board, info, iccf_moves, agreeList: [AgreeChange], prevAgreement):
+def fillAgreeList(board, info, iccf_moves, moveChangeList: [BestMoveChange]):
     engineMove = " " + board.san(info.get('pv')[0])
     agree = engineMove in iccf_moves
     nodesUsed = info.get('nodes')
-    agreedLikePrevious = agree == prevAgreement
-    if not agreedLikePrevious:
 
+    if len(moveChangeList) == 0:
+        isMoveChange = True
+    else:
+        isMoveChange = moveChangeList[len(moveChangeList) - 1].mv == engineMove
+    if isMoveChange:
         nodes2 = nodesUsed if agree else (nodesUsed * -1)
         if type(info['score']) == chess.engine.PovScore:
             eval3 = info.get("score").relative.cp
         elif type(info['score']) == chess.engine.Mate:
             eval3 = 9999
         else:
-            eval3 = " "
-        toAppend: AgreeChange = AgreeChange(nodes2, engineMove, eval3)
-        agreeList.append(toAppend)
+            eval3 = "9998"
+        toAppend: BestMoveChange = BestMoveChange(nodes2, engineMove, eval3)
+        moveChangeList.append(toAppend)
     # prevAgreement is really used, it is just in next loop iteration
-    prevAgreement = agree
-    return agree, prevAgreement, nodesUsed
+    # todo agree and nodesUsed needed in parent now that I have a list?
+    return agree, nodesUsed
 
 
 def getProbability(verbose):
@@ -270,7 +273,7 @@ def runOnePosition(positionLine: str, engine: chess.engine.SimpleEngine):
             if isFirstPv:
                 # disable this in production only used with debugger break points
                 # infoForDebug.append(info)
-                agree, prevAgreement, nodesUsed = fillAgreeList(board, info, iccf_moves, agreeList, prevAgreement)
+                agree, nodesUsed = fillAgreeList(board, info, iccf_moves, agreeList)
                 if nodesUsed > maxNodes * earlyStop:
                     break
 
@@ -278,7 +281,7 @@ def runOnePosition(positionLine: str, engine: chess.engine.SimpleEngine):
     # I there are two paths to here, on through the analaysis loop, the other in engine.Limit
     # engine.Limit permists use of the Leela details,
     # it also requires setting some variables here also.
-    agree, prevAgreement, nodesUsed = fillAgreeList(board, analysis.info, iccf_moves, agreeList, prevAgreement)
+    agree, nodesUsed = fillAgreeList(board, analysis.info, iccf_moves, agreeList)
     agree2 = "1" if agree else "0"
     mpv = []
     for pv in analysis.multipv:
@@ -367,18 +370,18 @@ def runOnePositionSet():
         # if positionLine == positionList[5]: #helpful to debug just 5 lines of position set
         #    break
 
-        try:
-            positionResult: LogOutput = runOnePosition(positionLine, engine)
-        # it is intentional to catch all exceptions and move to next line
-        # I do this so the rest of the positions can be worked even if one errors.
-        except IndexError:
-            print(f"error in runOnePosition read position from screen output")
-            continue
+        # try:
+        positionResult: LogOutput = runOnePosition(positionLine, engine)
+        # # it is intentional to catch all exceptions and move to next line
+        # # I do this so the rest of the positions can be worked even if one errors.
+        # except IndexError:
+        #     print(f"error in runOnePosition read position from screen output")
+        #     continue
 
         if positionResult.agree == 1:
             right += 1
-        if len(positionResult.agreeList) > 0:  # count of finds
-            bm: AgreeChange = positionResult.agreeList[0]
+        if len(positionResult.bestMoveChangeList) > 0:  # count of finds
+            bm: BestMoveChange = positionResult.bestMoveChangeList[0]
             totalNodesForFirstFind += bm.nodes
         nodesUsed.append(positionResult.nodesUsed)
         logLines.append(str(positionResult))

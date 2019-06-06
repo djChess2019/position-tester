@@ -48,7 +48,9 @@ if __name__ == "__main__":
             net_id = int(current_net_id)
             if net_id > max_id:
                 continue
-            if net_id <= min_id:
+            if net_id < min_id:
+                continue
+            if net_id % 20 != 0:
                 continue
             # if net_id%25 != 0:
             #     continue
