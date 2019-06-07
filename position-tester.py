@@ -94,6 +94,7 @@ class BestMoveChange:
 
 
 class LogOutput:
+
     def __init__(self, agree: int, iccfMoves: str, nodesUsed: int, positionId: str, turn: str,
                  pieces: int, networkName: str, probability: float, mpv: [PvItem],
                  bestMoveChangeList: [BestMoveChange]):
@@ -138,6 +139,21 @@ class LogOutput:
 
         return listStr[-(len(listStr) - 2):]  # the opening ", "
 
+    def firstAgree(self):
+        if len(self.bestMoveChangeList) == 0:
+            return 0
+        for bm in self.bestMoveChangeList:
+            if bm.nodes > 0:
+                return bm.nodes
+        return 0
+
+    def agreeAt(self, nodeCount):
+        if len(self.bestMoveChangeList) == 0:
+            return False
+        for bm in self.bestMoveChangeList:
+            if abs(bm.nodes) >= nodeCount:
+                return bm.nodes > 0
+        return False
 
 # required to be in .json but not part of engine params
 epdPath = params["EPD"]
@@ -226,7 +242,7 @@ def fillAgreeList(board, info, iccf_moves, moveChangeList: [BestMoveChange]):
     agree = engineMove in iccf_moves
     nodesUsed = info.get('nodes')
 
-    if len(moveChangeList) < 2:
+    if len(moveChangeList) == 0:
         isMoveChange = True
     else:
         isMoveChange = moveChangeList[len(moveChangeList) - 1].mv != moveChangeList[len(moveChangeList) - 2].mv
@@ -381,8 +397,7 @@ def runOnePositionSet():
         if positionResult.agree == 1:
             right += 1
         if len(positionResult.bestMoveChangeList) > 0:  # count of finds
-            bm: BestMoveChange = positionResult.bestMoveChangeList[0]
-            totalNodesForFirstFind += bm.nodes
+            totalNodesForFirstFind += positionResult.firstAgree()
         nodesUsed.append(positionResult.nodesUsed)
         logLines.append(str(positionResult))
 

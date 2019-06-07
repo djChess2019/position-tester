@@ -51,7 +51,7 @@ if __name__ == "__main__":
             if net_id < min_id:
                 continue
             # if net_id % 20 != 0:
-            #    continue
+            #     continue
             # if net_id%25 != 0:
             #     continue
             if net_id < 37000:  # test30, test35
