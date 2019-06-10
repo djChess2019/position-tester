@@ -147,13 +147,21 @@ class LogOutput:
                 return bm.nodes
         return 0
 
-    def agreeAt(self, nodeCount):
+    def isAgreeAt(self, nodeCount):
         if len(self.bestMoveChangeList) == 0:
             return False
         for bm in self.bestMoveChangeList:
             if abs(bm.nodes) >= nodeCount:
                 return bm.nodes > 0
-        return False
+
+        return False  # todo change this to return the index of bm found non 0 is agreeAt
+
+    # if isAgreeAt is true then return the last prior agreement
+    # I believe the average should go down for postions found by canidates, where found in all
+    def agreePriorTo(self, nodeCount):
+        if not self.isAgreeAt(nodeCount):
+            return 0
+        # Since it is an agree start accept the item of agreement in the list.
 
 # required to be in .json but not part of engine params
 epdPath = params["EPD"]
@@ -245,7 +253,7 @@ def fillAgreeList(board, info, iccf_moves, moveChangeList: [BestMoveChange]):
     if len(moveChangeList) == 0:
         isMoveChange = True
     else:
-        isMoveChange = moveChangeList[len(moveChangeList) - 1].mv != moveChangeList[len(moveChangeList) - 2].mv
+        isMoveChange = moveChangeList[len(moveChangeList) - 1].mv != engineMove
     if isMoveChange:
         nodes2 = nodesUsed if agree else (nodesUsed * -1)
         if type(info['score']) == chess.engine.PovScore:
@@ -398,6 +406,8 @@ def runOnePositionSet():
             right += 1
         if len(positionResult.bestMoveChangeList) > 0:  # count of finds
             totalNodesForFirstFind += positionResult.firstAgree()
+        else:
+            totalNodesForFirstFind += maxNodes * 2  # todo find formula, how long for future find on average
         nodesUsed.append(positionResult.nodesUsed)
         logLines.append(str(positionResult))
 
@@ -405,20 +415,20 @@ def runOnePositionSet():
             writeLog(logLines)
             logLines = []
         total2 += 1
-        if total2 % CONST.progressInterval == 0:
+        # I use right in the math, non sense when 0
+        if total2 % CONST.progressInterval == 0 and right > 1:
             elapsedTime = datetime.datetime.now() - startTime
             problems = len(positionList)
             timePerProblem = elapsedTime / total2
             expectedEndTime = ((timePerProblem * problems) + startTime).isoformat(' ', 'minutes')
             percentAgree = str(round(right / total2 * 100, 2))
             # stop division by 0 when debugging and non are right.
-            if right == 0:
-                right = 1
             outv2 = ["\r" + str(right) + "/" + str(total2),
                      " Agree:" + percentAgree + "%",
                      "Expected end of this run: " + expectedEndTime,
                      "average nodes per move: " + "%.0f" % (np.average(nodesUsed)),
-                     "average nodes first found of agreed: " + "%.0f" % (totalNodesForFirstFind / right)
+                     # now I am adding maxNodes*2 for never found so I divide by total
+                     "average nodes first found of agreed: " + "%.0f" % (totalNodesForFirstFind / total2)
                      ]
             sys.stderr.write(", ".join(outv2))
             sys.stderr.flush()
@@ -448,7 +458,7 @@ if isLeela:
         if agreed == 0:
             agreed = 1
         outv = [weight, str(maxNodes), str(int(round(np.average(nodesUsedList)))), str(agreed), str(total),
-                "%.3f" % ((100.0 * agreed) / total), "%.3f" % (totalNodesForFirstFind / agreed)]
+                "%.3f" % ((100.0 * agreed) / total), "%.3f" % (totalNodesForFirstFind / total)]
         outFile.write("\t".join(outv) + "\n")
         outFile.flush()
         sys.stdout.write("\n\n")
