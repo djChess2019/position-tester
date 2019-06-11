@@ -7,7 +7,7 @@ import chess.engine
 import json
 import datetime
 import logging
-
+import time
 logging.basicConfig(level=logging.CRITICAL)
 
 
@@ -370,6 +370,9 @@ def sendPositionSetHeaders():
     writeLog(f"#### {json.dumps(params)}\n")
     sys.stderr.write(f"{enginePath}\n  nodes:{maxNodes}\n  weight:{weight}\n  earlyStop:{earlyStop}")
     sys.stderr.write(json.dumps(params, separators=(', ', ": "), indent=5))
+    sys.stderr.write("\n")
+    sys.stderr.write(
+        f"*** if you need to pause all instances runing just create a file named \"pause-Position-tester.txt\" ")
 
 
 # run one pass through an EPD tactics file with specific parameters
@@ -396,7 +399,14 @@ def runOnePositionSet():
         # if positionLine == positionList[5]: #helpful to debug just 5 lines of position set
         #    break
 
+        # check for a pause file
+        while os.path.exists(".\\pause-Position-tester.txt"):
+            sys.stderr.write("\rpaused delete pause-Position-tester.txt to continue:")
+            time.sleep(60)
+
+
         # try:
+
         positionResult: LogOutput = runOnePosition(positionLine, engine)
         # # it is intentional to catch all exceptions and move to next line
         # # I do this so the rest of the positions can be worked even if one errors.
