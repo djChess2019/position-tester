@@ -289,6 +289,7 @@ def runOnePosition(positionLine: str, engine: chess.engine.SimpleEngine):
     prevAgreement = False
     # infoForDebug = []
     # the detailedMoveInfo is available only when a limit is set AND then after it exits the loop.
+    # limit = chess.engine.Limit(time=1)
     limit = chess.engine.Limit(nodes=maxNodes)
     with engine.analysis(board, limit, multipv=3, info=chess.engine.INFO_ALL, game=positionId) as analysis:
         for info in analysis:
