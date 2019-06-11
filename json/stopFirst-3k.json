@@ -1,0 +1,12 @@
+{
+  "EPD": "./IccfCombined-1NodeReduced-113k.txt",
+  "Lc0": "../lc0/lc0.exe",
+  "weights_path": "./",
+  "threads": 2,
+  "minibatchSize": 256,
+  "cpuct": 3.0,
+  "MoveOverheadMs": 1,
+  "nodes": 3000,
+  "stop_first": 1,
+  "found_three_times": 0
+}
