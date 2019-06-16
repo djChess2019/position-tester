@@ -1,10 +1,10 @@
 # position-tester
 Test your chess engines against different sets of positions for a cheap measure of relative strength.
 
-#### Data Source
+### Data Source
 ICCF data: GM correspondence chess positions
 
-#### Prerequisites
+### Prerequisites
 1. Python and a couple libraries
 2. Chess engine(s) and weights files (if applicable)
 
@@ -19,11 +19,11 @@ ICCF data: GM correspondence chess positions
 python position-tester.py NetworksList.txt ConfigurationSettings.json OutputSummary.txt OuputLog.log
 ```
 
-#### Output
+### Output
 1. Results summary
 2. Detailed log for each position
 
-#### Sample NetworksList.txt
+### Sample NetworksList.txt
 ```
 weights_run1_11248.pb.gz
 weights_run1_22154.pb.gz
@@ -33,7 +33,7 @@ weights_run2_50778.pb.gz
 ```
 
 ### Sample ConfigurationSettings.json
-The parameters `EPD` and `enginePath` are mandatory as is `weights_path` for NN engines. Others parameters are optional.
+The parameters `EPD` and `enginePath` are mandatory as is `weights_path` for NN engines. Other parameters are optional.
 ```
 {
 	"EPD" : "PositionSet.txt",
