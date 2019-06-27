@@ -257,10 +257,10 @@ def fillAgreeList(board, info, iccf_moves, moveChangeList: [BestMoveChange]):
         isMoveChange = moveChangeList[len(moveChangeList) - 1].mv != engineMove
     if isMoveChange:
         nodes2 = nodesUsed if agree else (nodesUsed * -1)
-        if type(info['score']) == chess.engine.PovScore:
-            eval3 = info.get("score").relative.cp
-        elif type(info['score']) == chess.engine.Mate:
+        if info['score'].white().is_mate:
             eval3 = 9999
+        elif type(info['score']) == chess.engine.PovScore:
+            eval3 = info.get("score").relative.cp
         else:
             eval3 = "9998"
         toAppend: BestMoveChange = BestMoveChange(nodes2, engineMove, eval3)
