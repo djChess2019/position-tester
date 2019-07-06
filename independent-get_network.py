@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
 import sys, os, re, time, collections, ctypes
 
-# simply enter the min_id and max_id  in command line
+# simply enter the min_id and max_id  in command line don't be afraid to put in break points,
+# the code has been modied to get every 20th network and such
+# also one user had trouble with wget on windows...... ask!
 
 
 if __name__ == "__main__":
