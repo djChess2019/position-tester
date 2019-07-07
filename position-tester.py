@@ -15,14 +15,14 @@ logging.basicConfig(level=logging.CRITICAL)
 #  these fileNames are contained in position-tester-settings.yaml
 #  required files. 	1. an engine one setting for an engine is an optional single paramSetup
 #  					2. for NN a network
-#  					3. a position set
+#  					3. a position subset
 #  optional files. 	1. a list of nets
 #  					2. a list of paramSetting files
 #  					3. a list of engines.
 #  the sample file "sample-position-tester-settings.yaml" will evolve with all settings notes and comments.
 # for each engine
 #     NOTE: an engine is exe but not the params
-#     NOTE: for leela --history-fill=always is hard coded - no need for having it set in .json tc
+#     NOTE: for leela --history-fill=always is hard coded - no need for having it subset in .json tc
 #     NOTE tc is never used for any engine always nodes searched, I may put tc back in it is a way to
 #           check cross runs, 10b 20b and 40b, during param testing it may help. speed matters some.
 #
@@ -65,7 +65,7 @@ outFileName = sys.argv[3]  # todo make this a list variable in Json
 logFileName = sys.argv[4]  # todo make this a list variable in Json
 
 # ############# globals - please note what function has edit
-# set up command and paths from the json file, removing them as you go
+# subset up command and paths from the json file, removing them as you go
 # some commands are ok, even required in the .json but can't be in engine params
 params = json.load(open(jsonFileName))
 
@@ -205,8 +205,8 @@ if "tc" in params:
 
 countOfBigEvalDifference = 0  # changed in runOnePositionSet()
 totalNodesForFirstFind = 0  # changed in RunOnePositionSet()
-positionLogFile = open(logFileName, "a")  # only set here
-writeHeaderLineToSummaryOutput: bool = not os.path.exists(outFileName)  # only set here
+positionLogFile = open(logFileName, "a")  # only subset here
+writeHeaderLineToSummaryOutput: bool = not os.path.exists(outFileName)  # only subset here
 outFile = open(outFileName, "a")  # only Set here and left open
 
 if writeHeaderLineToSummaryOutput:  # write a header if this is a new output file
@@ -235,7 +235,7 @@ if isLeela:
 # using the global positionList fill it from the position file. Todo this seems like a waist of memory 100k??
 def readPositions():
     global positionList
-    epdf = open(epdPath)  # only set here left open
+    epdf = open(epdPath)  # only subset here left open
     epdfLines = epdf.readlines()
     epdf.close()
     positionList = []
@@ -288,7 +288,7 @@ def runOnePosition(positionLine: str, engine: chess.engine.SimpleEngine):
     agreeList = []
     prevAgreement = False
     # infoForDebug = []
-    # the detailedMoveInfo is available only when a limit is set AND then after it exits the loop.
+    # the detailedMoveInfo is available only when a limit is subset AND then after it exits the loop.
     # limit = chess.engine.Limit(time=1)
     limit = chess.engine.Limit(nodes=maxNodes)
     with engine.analysis(board, limit, multipv=3, info=chess.engine.INFO_ALL, game=positionId) as analysis:
@@ -396,7 +396,7 @@ def runOnePositionSet():
 
     for positionLine in positionList:
 
-        # if positionLine == positionList[5]: #helpful to debug just 5 lines of position set
+        # if positionLine == positionList[5]: #helpful to debug just 5 lines of position subset
         #    break
 
         # check for a pause file
@@ -446,7 +446,7 @@ def runOnePositionSet():
             sys.stderr.flush()
 
     engine.quit()
-    writeLog(logLines)  # make sure the last set is written
+    writeLog(logLines)  # make sure the last subset is written
     sys.stderr.write("\n")
     return right, total2, nodesUsed
 
@@ -458,7 +458,7 @@ readPositions()
 if isLeela:
     runTot = len(weights)  # the weights list is made about line 120 in global . why?
     runNum = 1
-    for weight in weights:  # loop over network weights, running problem set for each
+    for weight in weights:  # loop over network weights, running problem subset for each
         startTime = datetime.datetime.now()
         appendix = str(maxNodes) + " nodes"
         params["WeightsFile"] = weightPath + weight
