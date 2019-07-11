@@ -84,13 +84,14 @@ class PvItem:
 
 
 class BestMoveChange:
-    def __init__(self, nodes: int, move: str, score: int):
+    def __init__(self, nodes: int, move: str, score: int, mTime):
         self.nodes = nodes
         self.mv = move
         self.score = score
+        self.mvTime = mTime
 
     def __str__(self):
-        return f"[{self.nodes}, {self.mv}, {self.score}]"
+        return f"[{self.nodes}, {self.mv}, {self.score}, {self.mvTime}]"
 
 
 class LogOutput:
@@ -250,11 +251,11 @@ def fillAgreeList(board, info, iccf_moves, moveChangeList: [BestMoveChange]):
     engineMove = " " + board.san(info.get('pv')[0])
     agree = engineMove in iccf_moves
     nodesUsed = info.get('nodes')
-
+    mvTime = info.get('time')
     if len(moveChangeList) == 0:
         isMoveChange = True
     else:
-        isMoveChange = moveChangeList[len(moveChangeList) - 1].mv != engineMove
+        isMoveChange = moveChangeList[- 1].mv != engineMove
     if isMoveChange:
         nodes2 = nodesUsed if agree else (nodesUsed * -1)
         if info['score'].white().is_mate():
@@ -263,7 +264,7 @@ def fillAgreeList(board, info, iccf_moves, moveChangeList: [BestMoveChange]):
             eval3 = info.get("score").relative.cp
         else:
             eval3 = "9998"
-        toAppend: BestMoveChange = BestMoveChange(nodes2, engineMove, eval3)
+        toAppend: BestMoveChange = BestMoveChange(nodes2, engineMove, eval3, mvTime)
         moveChangeList.append(toAppend)
     # prevAgreement is really used, it is just in next loop iteration
     # todo agree and nodesUsed needed in parent now that I have a list?
@@ -289,8 +290,8 @@ def runOnePosition(positionLine: str, engine: chess.engine.SimpleEngine):
     prevAgreement = False
     # infoForDebug = []
     # the detailedMoveInfo is available only when a limit is set AND then after it exits the loop.
-    # limit = chess.engine.Limit(time=1)
-    limit = chess.engine.Limit(nodes=maxNodes)
+    limit = chess.engine.Limit(time=20.0)
+    # limit = chess.engine.Limit(nodes=maxNodes)
     with engine.analysis(board, limit, multipv=3, info=chess.engine.INFO_ALL, game=positionId) as analysis:
         for info in analysis:
 
@@ -300,7 +301,7 @@ def runOnePosition(positionLine: str, engine: chess.engine.SimpleEngine):
                 # disable this in production only used with debugger break points
                 # infoForDebug.append(info)
                 agree, nodesUsed = fillAgreeList(board, info, iccf_moves, agreeList)
-                if nodesUsed > maxNodes * earlyStop:
+                if limit.nodes and nodesUsed > maxNodes * earlyStop:
                     break
 
     turn = "W" if board.turn == chess.WHITE else "B"
