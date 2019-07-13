@@ -132,32 +132,7 @@ def main():
 
     # sets are 2,4,6,8
 
-    rows = []
-    for i in range(35):
-        rows.append([])
 
-    rows[0].append("pieces")
-    for pieces in range(7, 32):
-        rows[pieces - 5].append(pieces)
-    totalRow = 32 - 5 + 1
-    rows[totalRow].append("Total")
-    for setN in [2, 4, 6, 8]:
-        # print the columns
-        subset = my_collection.where(lambda x: x.logSet == setN)
-        rows[0].append(subset.first().network)
-        rows[0].append(subset.first().network)
-        setAgree = subset.where(lambda x: x.agree == 1).count() / subset.count()
-        for pieces in range(7, 32):
-            piecesSet = subset.where(lambda x: x.pieces == pieces)
-
-            piecesAgree = piecesSet.where(lambda x: x.agree == 1).count() / piecesSet.count()
-            rows[pieces - 5].append(piecesSet.count())
-            rows[pieces - 5].append(piecesAgree)
-
-        rows[totalRow].append(setAgree)
-    with open('jjosh.csv', "w", newline="") as csvfile:
-        writer = csv.writer(csvfile)
-        writer.writerows(rows)
 
 
 def selectionExamples():
