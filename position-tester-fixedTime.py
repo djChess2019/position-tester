@@ -101,6 +101,7 @@ class LogOutput:
                  bestMoveChangeList: [BestMoveChange]):
         self.agree = agree
         self.iccfMoves = iccfMoves
+        self.wall = time.clock()
         self.nodesUsed: int = nodesUsed
         self.positionId: str = positionId
         self.turn: str = turn
@@ -290,7 +291,7 @@ def runOnePosition(positionLine: str, engine: chess.engine.SimpleEngine):
     prevAgreement = False
     # infoForDebug = []
     # the detailedMoveInfo is available only when a limit is set AND then after it exits the loop.
-    limit = chess.engine.Limit(time=20.0)
+    limit = chess.engine.Limit(time=100.0)
     # limit = chess.engine.Limit(nodes=maxNodes)
     with engine.analysis(board, limit, multipv=3, info=chess.engine.INFO_ALL, game=positionId) as analysis:
         for info in analysis:

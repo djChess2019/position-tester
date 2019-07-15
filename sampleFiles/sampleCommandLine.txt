@@ -1,1 +1,1 @@
-python position-tester.py sampleNetworkList.txt sampleJsonFile.json sampleResults.txt sample.log
+python position-tester.py .\sampleFiles\sampleNetworkList.txt .\sampleFiles\sampleJsonFile.json .\sampleFiles\sampleResults.txt sample.log
