@@ -101,7 +101,7 @@ class LogOutput:
                  bestMoveChangeList: [BestMoveChange]):
         self.agree = agree
         self.iccfMoves = iccfMoves
-        self.wall = time.clock()
+        self.wall = time.perf_counter()
         self.nodesUsed: int = nodesUsed
         self.positionId: str = positionId
         self.turn: str = turn
@@ -184,7 +184,11 @@ if "nodes" in params:
     maxNodes = params["nodes"]
     del params["nodes"]
 else:
-    maxNodes = 100
+    if "tc" in params:
+        tc = params["tc"]
+        del params["tc"]
+    else:
+        maxNodes = 100
 
 # weight path gets combined with weight in runOnePositionSet
 weights = []
@@ -291,8 +295,10 @@ def runOnePosition(positionLine: str, engine: chess.engine.SimpleEngine):
     prevAgreement = False
     # infoForDebug = []
     # the detailedMoveInfo is available only when a limit is set AND then after it exits the loop.
-    limit = chess.engine.Limit(time=100.0)
-    # limit = chess.engine.Limit(nodes=maxNodes)
+    if tc:
+        limit = chess.engine.Limit(time=100.0)
+    else:
+        chess.engine.Limit(nodes=maxNodes)
     with engine.analysis(board, limit, multipv=3, info=chess.engine.INFO_ALL, game=positionId) as analysis:
         for info in analysis:
 
