@@ -84,14 +84,13 @@ class PvItem:
 
 
 class BestMoveChange:
-    def __init__(self, nodes: int, move: str, score: int, mTime):
+    def __init__(self, nodes: int, move: str, score: int):
         self.nodes = nodes
         self.mv = move
         self.score = score
-        self.mvTime = mTime
 
     def __str__(self):
-        return f"[{self.nodes}, {self.mv}, {self.score}, {self.mvTime}]"
+        return f"[{self.nodes}, {self.mv}, {self.score}]"
 
 
 class LogOutput:
@@ -101,7 +100,6 @@ class LogOutput:
                  bestMoveChangeList: [BestMoveChange]):
         self.agree = agree
         self.iccfMoves = iccfMoves
-        self.wall = time.perf_counter()
         self.nodesUsed: int = nodesUsed
         self.positionId: str = positionId
         self.turn: str = turn
@@ -183,13 +181,15 @@ else:
 if "nodes" in params:
     maxNodes = params["nodes"]
     del params["nodes"]
-else:
-    if "tc" in params:
-        tc = params["tc"]
-        del params["tc"]
-    else:
-        maxNodes = 100
+    limitString = str(maxNodes) + " nodes"
+if "tc" in params:
+    tc = params["tc"]
+    del params["tc"]
+    limitString = str(tc) + " seconds"
 
+else:
+    maxNodes = 100
+    limitString = str(maxNodes) + " nodes"
 # weight path gets combined with weight in runOnePositionSet
 weights = []
 if isLeela:
@@ -256,11 +256,11 @@ def fillAgreeList(board, info, iccf_moves, moveChangeList: [BestMoveChange]):
     engineMove = " " + board.san(info.get('pv')[0])
     agree = engineMove in iccf_moves
     nodesUsed = info.get('nodes')
-    mvTime = info.get('time')
+
     if len(moveChangeList) == 0:
         isMoveChange = True
     else:
-        isMoveChange = moveChangeList[- 1].mv != engineMove
+        isMoveChange = moveChangeList[len(moveChangeList) - 1].mv != engineMove
     if isMoveChange:
         nodes2 = nodesUsed if agree else (nodesUsed * -1)
         if info['score'].white().is_mate():
@@ -269,7 +269,7 @@ def fillAgreeList(board, info, iccf_moves, moveChangeList: [BestMoveChange]):
             eval3 = info.get("score").relative.cp
         else:
             eval3 = "9998"
-        toAppend: BestMoveChange = BestMoveChange(nodes2, engineMove, eval3, mvTime)
+        toAppend: BestMoveChange = BestMoveChange(nodes2, engineMove, eval3)
         moveChangeList.append(toAppend)
     # prevAgreement is really used, it is just in next loop iteration
     # todo agree and nodesUsed needed in parent now that I have a list?
@@ -295,10 +295,10 @@ def runOnePosition(positionLine: str, engine: chess.engine.SimpleEngine):
     prevAgreement = False
     # infoForDebug = []
     # the detailedMoveInfo is available only when a limit is set AND then after it exits the loop.
-    if tc:
-        limit = chess.engine.Limit(time=100.0)
+    if "tc" in globals():
+        limit = chess.engine.Limit(time=tc)
     else:
-        chess.engine.Limit(nodes=maxNodes)
+        limit = chess.engine.Limit(nodes=maxNodes)
     with engine.analysis(board, limit, multipv=3, info=chess.engine.INFO_ALL, game=positionId) as analysis:
         for info in analysis:
 
@@ -308,8 +308,9 @@ def runOnePosition(positionLine: str, engine: chess.engine.SimpleEngine):
                 # disable this in production only used with debugger break points
                 # infoForDebug.append(info)
                 agree, nodesUsed = fillAgreeList(board, info, iccf_moves, agreeList)
-                if limit.nodes and nodesUsed > maxNodes * earlyStop:
-                    break
+                # no longer needed I use Limit now
+                # if 'maxNodes' in globals() and nodesUsed > maxNodes:
+                #    break
 
     turn = "W" if board.turn == chess.WHITE else "B"
     # I there are two paths to here, on through the analaysis loop, the other in engine.Limit
@@ -468,7 +469,7 @@ if isLeela:
     runNum = 1
     for weight in weights:  # loop over network weights, running problem set for each
         startTime = datetime.datetime.now()
-        appendix = str(maxNodes) + " nodes"
+        appendix = limitString
         params["WeightsFile"] = weightPath + weight
         sys.stdout.write("\nRun " + str(runNum) + " of " + str(runTot) + ": " + weight + ", " + appendix + "\n")
         sys.stdout.flush()
