@@ -181,6 +181,8 @@ def main():
             agreeAtCount = set.where(lambda x: x.isAgreedAt(checkAgreedAtNodes) == True).count()
             row.append('{:.{prec}f}'.format(agreeAtCount / set.count() * 100, prec=2))
             checkAgreedAtNodes *= 2
+        top1 = set.where(lambda x: x.agree == 1).count()
+        row[-1] = '{:.{prec}f}'.format(top1 / set.count() * 100, prec=2)
         # is in 2nd but not in 1
         in2ndset = set.where(lambda x: x.pvs[1][1] in x.iccf)
         in2nd = in2ndset.count() - in2ndset.where(lambda x: x.pvs[0][1] in x.iccf).count()
@@ -197,6 +199,7 @@ def main():
         # prepend network at end so that I am able to compare and pick bigest test even if not same size
 
     header.insert(0, "net")
+    header[-1] = "top1"
     header.append("top2")
     header.append("top3")
     print(re.sub("[\[\]\']", '', header.__str__()))
