@@ -43,13 +43,9 @@ logFileName = sys.argv[4]  # todo make this a list variable in Json
 # set up command and paths from the json file, removing them as you go
 # some commands are ok, even required in the .json but can't be in engine params
 
-
 params = json.load(open(jsonFileName))
-
-
 # positionResult
 # built in runOnePosition() this is what will go to the log, it is read in runOnePositionSet;
-
 
 class PvItem:
     def __init__(self, move: str, score: int):
@@ -157,6 +153,7 @@ if "lc0" in enginePath:
     if "Threads" not in params:
         params["Threads"] = 1
     params["backend"] = "cudnn-fp16"
+
 else:
     isLeela = False
 
@@ -164,14 +161,15 @@ if "nodes" in params:
     maxNodes = params["nodes"]
     del params["nodes"]
     limitString = str(maxNodes) + " nodes"
-if "tc" in params:
-    tc = params["tc"]
-    del params["tc"]
-    limitString = str(tc) + " seconds"
-
 else:
-    maxNodes = 100
-    limitString = str(maxNodes) + " nodes"
+    if "tc" in params:
+        tc = params["tc"]
+        del params["tc"]
+        limitString = str(tc) + " seconds"
+
+    else:
+        maxNodes = 100
+        limitString = str(maxNodes) + " nodes"
 # weight path gets combined with weight in runOnePositionSet
 weights = []
 if isLeela:
@@ -179,12 +177,10 @@ if isLeela:
     del params["weights_path"]
 else:
     weightPath = ""
-# earlyStop is in range of 0.01, it causes the analysis to stop when
+
+# earlyStop is no longer used.
 # there is an agreement of 0.01 * maxNodes
-if "earlyStop" not in params:
-    earlyStop = 1
-else:
-    earlyStop = params["earlyStop"]
+if "earlyStop" in params:
     del params["earlyStop"]
 
 #
@@ -360,7 +356,7 @@ def sendPositionSetHeaders(startTime):
     # writeLog(params)
     # writeLog(str(startTime))
 
-    sys.stderr.write(f" {enginePath}\n  nodes:{maxNodes}\n  weight:{weight}\n  earlyStop:{earlyStop}")
+    sys.stderr.write(f" {enginePath}\n  nodes:{maxNodes}\n  weight:{weight}\n ")
     sys.stderr.write(json.dumps(params, separators=(', ', ": "), indent=5))
     sys.stderr.write("\n")
     sys.stderr.write(
