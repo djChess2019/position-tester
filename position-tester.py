@@ -354,7 +354,7 @@ def sendPositionSetHeaders(startTime):
     positionLogFile.write(
         f"# engine:{enginePath},\n# params:{params.__str__()},\n# epd:{epdPath},\n# start Time {str(startTime)}\n")
     # writeLog(params)
-    # writeLog(str(startTime))
+    # writeLog(str(startTime)) tt
 
     sys.stderr.write(f" {enginePath}\n  nodes:{maxNodes}\n  weight:{weight}\n ")
     sys.stderr.write(json.dumps(params, separators=(', ', ": "), indent=5))
