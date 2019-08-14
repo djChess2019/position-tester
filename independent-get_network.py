@@ -52,19 +52,12 @@ if __name__ == "__main__":
                 continue
             if net_id < min_id:
                 continue
-            # if net_id % 20 != 0:
-            #     continue
-            # if net_id%25 != 0:
-            #     continue
-            if net_id < 37000:  # test30, test35
-                TEST_NO = net_id // 5000 * 5
-            elif net_id < 40000:  # test37
-                TEST_NO = net_id // 1000
-            else:  # test40
-                TEST_NO = net_id // 10000 * 10
+            if net_id % 5 != 0:
+                continue
             m = re.match(r'.*href="(.*?)"', line)
             i = line_lst.index(line)
-            weights_target = "%i" % (net_id)
+            weights_target = "%i" % net_id
+            # there isn't a need to load if it already exists!
             if os.path.isfile(NetworksDir + weights_target):
                 continue
             cmd = "wget http://%s%s -O %s%s" % (SERVER, m.group(1), NetworksDir, weights_target)

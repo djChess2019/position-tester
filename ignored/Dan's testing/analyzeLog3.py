@@ -1,8 +1,13 @@
 import re
 import json
+import shutil
+import os
 import csv
 from py_linq import Enumerable
 from engineering_notation import EngNumber
+from pathlib import Path
+from pprint import pprint
+import zipfile
 
 fullPath = r"F:\leela\github\position-tester\ignored\Dan's testing\Log2.log"
 my_collection = Enumerable()
@@ -60,14 +65,16 @@ class PositionTesterLogItem:
         lastEntry = self.changeList[-1]
         # example entries [ 20, -100]
         # targetNodeCount = 300; if |-100| < 300 return (-100 > 0)  so return false
-        if abs(lastEntry) <= targetNodeCount:
-            return lastEntry > 0
+        if abs(lastEntry.nodeCount) <= targetNodeCount:
+            # agree is when lastEntry.nodeCount not a negative
+            return lastEntry.nodeCount > 0
         firstEntry = self.changeList[0]
         # targetNodeCount = 10; if 20 > 10 then it was first found later return False
-        if abs(firstEntry) > targetNodeCount:
+        if abs(firstEntry.nodeCount) > targetNodeCount:
             return False
         tmpResult = False
-        for nodeCount in self.changeList:
+        for item in self.changeList:
+            nodeCount = item.nodeCount
             if targetNodeCount >= abs(nodeCount):
                 tmpResult = nodeCount > 0
             else:
@@ -103,36 +110,88 @@ def changedInRange(item: PositionTesterLogItem, minNodes1: int, maxNodes1: int) 
     return False
 
 
+def getFilesIntoCollection():
+    shutil.rmtree("./tmpSplitLogs")
+    temporaryDirectory = r"./tmpSplitLogs"
+    zippedDir = r"F:\leela\github\position-tester\logs\100k positions @ 10kn"
+    zippedList = Path(zippedDir).glob('*.zip')
+    for zipped in zippedList:
+        with zipfile.ZipFile(zipped, 'r') as zip_ref:
+            zip_ref.extractall(temporaryDirectory)
+
 def main():
     x = 1
     logSet = 0
     log = []
-    global my_collection
+
     # theOpenFile = open(r"F:\leela\github\position-tester\logs\SF10_10M.log")
-    theOpenFile = open(fullPath)
-    for line in theOpenFile:
-        if line.startswith("#"):
-            logSet += 1
-            print(logSet)
-            continue
-        if line.startswith("result, logSet"):
-            continue
-        if len(line) > 2:
-            x += 1
-            log.append(PositionTesterLogItem(line, logSet))
-    theOpenFile.close()
+
+    logList = Path(temporaryDirectory).glob('*.log')
+    for file in logList:
+        theOpenFile = open(file)
+        for line in theOpenFile:
+            if line.startswith("#"):
+                logSet += 1
+                print(logSet)
+                continue
+            if line.startswith("result, logSet"):
+                continue
+            if len(line) > 2:
+                x += 1
+                log.append(PositionTesterLogItem(line, logSet))
+        theOpenFile.close()
+    global my_collection
     my_collection = Enumerable(log)
+
+
+def main():
+    getFilesIntoCollection()
     sumNodes = 0
     correct = 0
     print(my_collection.count())
     # try filtering out the easy finds < 100 that are always in agreement
-    sets = []
+    netField = lambda x: x.network
+    sets = my_collection.distinct(netField).select(lambda x: x.network).to_list()
+    for setName in sets:
+        maxNodesUsed = my_collection.select(lambda x: x.nodesUsed).max()
+        set = my_collection.where(lambda x: x.network == setName)
+        if set.count() == 0:
+            continue
+        row = []
+        # strip long network name down to just the number
+        if "weights_" in setName:
+            setName = re.search("[0-9]{3,}", setName).group(0)
+        header = []
 
-    print(my_collection.first().__dict__)
+        row.append(setName)
+        checkAgreedAtNodes = 64
 
-    # sets are 2,4,6,8
+        while maxNodesUsed > checkAgreedAtNodes:
+            if len(header) == 0 or checkAgreedAtNodes > header[-1]:
+                header.append(checkAgreedAtNodes)
+            agreeAtCount = set.where(lambda x: x.isAgreedAt(checkAgreedAtNodes) == True).count()
+            row.append('{:.{prec}f}'.format(agreeAtCount / set.count() * 100, prec=2))
+            checkAgreedAtNodes *= 2
+        # is in 2nd but not in 1
+        in2ndset = set.where(lambda x: x.pvs[1][1] in x.iccf)
+        in2nd = in2ndset.count() - in2ndset.where(lambda x: x.pvs[0][1] in x.iccf).count()
+        top2 = agreeAtCount + in2nd
+        row.append('{:.{prec}f}'.format(top2 / set.count() * 100, prec=2))
+        # is in 3rd but not in 1 or 2
+        in3rdset = set.where(lambda x: x.pvs[2][1] in x.iccf)
+        in3rd = in3rdset.count() - in3rdset.where(lambda x: x.pvs[0][1] in x.iccf).count()
+        in3rd -= in3rdset.where(lambda x: x.pvs[1][1] in x.iccf).count()
 
+        top3 = (agreeAtCount + in2nd + in3rd) / set.count() * 100
+        row.append('{:.{prec}f}'.format(top3, prec=2))
+        print(re.sub("[\[\]\']", '', row.__str__()))
+        # prepend network at end so that I am able to compare and pick bigest test even if not same size
 
+    header.insert(0, "net")
+    header.append("top2")
+    header.append("top3")
+    print(re.sub("[\[\]\']", '', header.__str__()))
+    # print(my_collection.first().__dict__)
 
 
 def selectionExamples():
