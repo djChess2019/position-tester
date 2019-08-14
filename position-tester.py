@@ -1,6 +1,8 @@
 import sys
 import os
 import re
+from datetime import datetime
+
 import numpy as np
 import chess
 import chess.engine
@@ -9,33 +11,6 @@ import datetime
 import logging
 import time
 logging.basicConfig(level=logging.CRITICAL)
-
-
-#  TODO: this is the outline of how I feel it should work, program isn't structured to be like this yet.
-#  these fileNames are contained in position-tester-settings.yaml
-#  required files. 	1. an engine one setting for an engine is an optional single paramSetup
-#  					2. for NN a network
-#  					3. a position set
-#  optional files. 	1. a list of nets
-#  					2. a list of paramSetting files
-#  					3. a list of engines.
-#  the sample file "sample-position-tester-settings.yaml" will evolve with all settings notes and comments.
-# for each engine
-#     NOTE: an engine is exe but not the params
-#     NOTE: for leela --history-fill=always is hard coded - no need for having it set in .json tc
-#     NOTE tc is never used for any engine always nodes searched, I may put tc back in it is a way to
-#           check cross runs, 10b 20b and 40b, during param testing it may help. speed matters some.
-#
-# 	- for each param file (the param.json my have a network.path and/or network.list)
-# 		NOTE: to test params auto create different param.files and add a paramFileList in position-tester-settings.json
-#      - for each network (if NN).
-#  	      o send header to log and summary as needed
-#         o for each position in file
-#            + engine analyzed for x nodes and then sends the result to log
-#         o send the summary results
-
-# as of May 16, 2019 these are up to avoid magic strings, but probably won't be changing.
-
 
 def writeLog(logList):
     # uses the global open file positionLogFile
@@ -58,7 +33,7 @@ CONST = CONST()
 # file with a simple list of networks to test, 1 per line. path taken from json
 netsFileName = sys.argv[1]  # todo make this a list variable in Json
 # configuration file for paths and Leela parameters
-jsonFileName = sys.argv[2]  # todo make this optional use a default Position-Tester-settings.json
+jsonFileName = sys.argv[2]  # todo make this optional use a default Position-Tester-PTsettings.json
 # the output file will have a bare bones summary of parameters and success rate
 outFileName = sys.argv[3]  # todo make this a list variable in Json
 # the log file will contain a simple summary of failed problems
@@ -67,7 +42,10 @@ logFileName = sys.argv[4]  # todo make this a list variable in Json
 # ############# globals - please note what function has edit
 # set up command and paths from the json file, removing them as you go
 # some commands are ok, even required in the .json but can't be in engine params
+
+
 params = json.load(open(jsonFileName))
+
 
 
 # positionResult
@@ -172,18 +150,30 @@ del params["enginePath"]
 if "lc0" in params:
     enginePath = params["lc0"]
     del params["lc0"]
+
 if "lc0" in enginePath:
     isLeela = True
-
+    # Leela specific options we want to change default for better testing
+    if "SmartPruningFactor" not in params:
+        params["SmartPruningFactor"] = 1
+    if "Threads" not in params:
+        params["Threads"] = 1
+    params["backend"] = "cudnn-fp16"
 else:
     isLeela = False
 
 if "nodes" in params:
     maxNodes = params["nodes"]
     del params["nodes"]
-else:
-    maxNodes = 100
+    limitString = str(maxNodes) + " nodes"
+if "tc" in params:
+    tc = params["tc"]
+    del params["tc"]
+    limitString = str(tc) + " seconds"
 
+else:
+
+    limitString = str(maxNodes) + " nodes"
 # weight path gets combined with weight in runOnePositionSet
 weights = []
 if isLeela:
@@ -199,9 +189,7 @@ else:
     earlyStop = params["earlyStop"]
     del params["earlyStop"]
 
-# tc is currently not used.
-if "tc" in params:
-    del params["tc"]
+#
 
 countOfBigEvalDifference = 0  # changed in runOnePositionSet()
 totalNodesForFirstFind = 0  # changed in RunOnePositionSet()
@@ -230,6 +218,7 @@ if isLeela:
     # add in the extra fixed params
     params["VerboseMoveStats"] = True
     params["HistoryFill"] = "always"
+
 
 
 # using the global positionList fill it from the position file. Todo this seems like a waist of memory 100k??
@@ -289,8 +278,10 @@ def runOnePosition(positionLine: str, engine: chess.engine.SimpleEngine):
     prevAgreement = False
     # infoForDebug = []
     # the detailedMoveInfo is available only when a limit is set AND then after it exits the loop.
-    # limit = chess.engine.Limit(time=1)
-    limit = chess.engine.Limit(nodes=maxNodes)
+    if "tc" in globals():
+        limit = chess.engine.Limit(time=tc)
+    else:
+        limit = chess.engine.Limit(nodes=maxNodes)
     with engine.analysis(board, limit, multipv=3, info=chess.engine.INFO_ALL, game=positionId) as analysis:
         for info in analysis:
 
@@ -300,8 +291,9 @@ def runOnePosition(positionLine: str, engine: chess.engine.SimpleEngine):
                 # disable this in production only used with debugger break points
                 # infoForDebug.append(info)
                 agree, nodesUsed = fillAgreeList(board, info, iccf_moves, agreeList)
-                if nodesUsed > maxNodes * earlyStop:
-                    break
+                # no longer needed I use Limit now
+                # if 'maxNodes' in globals() and nodesUsed > maxNodes:
+                #    break
 
     turn = "W" if board.turn == chess.WHITE else "B"
     # I there are two paths to here, on through the analaysis loop, the other in engine.Limit
@@ -365,14 +357,17 @@ def validateEngineParameters(engine):
 
 
 # put headers in the log and on screen.
-def sendPositionSetHeaders():
-    writeLog(f"#### {enginePath}  earlyStop {earlyStop}")
-    writeLog(f"#### {json.dumps(params)}\n")
-    sys.stderr.write(f"{enginePath}\n  nodes:{maxNodes}\n  weight:{weight}\n  earlyStop:{earlyStop}")
+def sendPositionSetHeaders(startTime):
+    positionLogFile.write(
+        f"# engine:{enginePath},\n# params:{params.__str__()},\n# epd:{epdPath},\n# start Time {str(startTime)}\n")
+    # writeLog(params)
+    # writeLog(str(startTime))
+
+    sys.stderr.write(f" {enginePath}\n  nodes:{maxNodes}\n  weight:{weight}\n  earlyStop:{earlyStop}")
     sys.stderr.write(json.dumps(params, separators=(', ', ": "), indent=5))
     sys.stderr.write("\n")
     sys.stderr.write(
-        f"*** if you need to pause all instances runing just create a file named \"pause-Position-tester.txt\" ")
+        f"*** if you need to pause all instances runing just create a file named \'pause-Position-tester.txt\' \n ")
 
 
 # run one pass through an EPD tactics file with specific parameters
@@ -380,10 +375,10 @@ def sendPositionSetHeaders():
 # maxNodes global must be provided tc is not used
 # all variables are global now
 def runOnePositionSet():
-    logLines = ['#### agree, iccf_moves, nodesUsed, position_id, toPlay, \
-                 pieces Count, weight, mpv 1 move, mpv 1 eval',
-                '#### mpv 2 move, mpv 2 eval,  mpv 3 move ; mpv3 eval \
-                probability (P), count of agree List, agree List']
+    logLines = ['# agree, iccf_moves, nodesUsed, position_id, toPlay, \
+pieces Count, weight, mpv 1 move, mpv 1 eval, \
+mpv 2 move, mpv 2 eval,  mpv 3 move ; mpv3 eval \
+probability (P), count of agree List, agree List']
     global totalNodesForFirstFind
     totalNodesForFirstFind = 0
     engine = chess.engine.SimpleEngine.popen_uci(enginePath)
@@ -454,30 +449,41 @@ def runOnePositionSet():
 # ###############################################################################
 # #########  main  ##############################################################
 # ###############################################################################
-readPositions()
-if isLeela:
-    runTot = len(weights)  # the weights list is made about line 120 in global . why?
-    runNum = 1
-    for weight in weights:  # loop over network weights, running problem set for each
+def main():
+    readPositions()
+    if isLeela:
+        runTot = len(weights)  # the weights list is made about line 120 in global . why?
+        runNum = 1
+        global weight
+        global startTime
+
+        for weight in weights:  # loop over network weights, running problem set for each
+            startTime = datetime.datetime.now()
+
+            appendix = limitString
+            params["WeightsFile"] = weightPath + weight
+            sendPositionSetHeaders(startTime)
+            sys.stdout.write("\nRun " + str(runNum) + " of " + str(runTot) + ": " + weight + ", " + appendix + "\n")
+            sys.stdout.flush()
+            # run the test for this network
+            agreed, total, nodesUsedList = runOnePositionSet()
+            # stop error for testing when 0 agree
+            if agreed == 0:
+                agreed = 1
+            outv = [weight, limitString, str(int(round(np.average(nodesUsedList)))), str(agreed), str(total),
+                    "%.3f" % ((100.0 * agreed) / total), "%.3f" % (totalNodesForFirstFind / total)]
+            outFile.write("\t".join(outv) + "\n")
+            outFile.flush()
+            sys.stdout.write("\n\n")
+            runNum += 1
+            positionLogFile.write(f"End Time:{datetime.datetime.now()}")
+    else:
         startTime = datetime.datetime.now()
-        appendix = str(maxNodes) + " nodes"
-        params["WeightsFile"] = weightPath + weight
-        sys.stdout.write("\nRun " + str(runNum) + " of " + str(runTot) + ": " + weight + ", " + appendix + "\n")
-        sys.stdout.flush()
-        # run the test for this network
+        weight = " "
         agreed, total, nodesUsedList = runOnePositionSet()
-        # stop error for testing when 0 agree
-        if agreed == 0:
-            agreed = 1
-        outv = [weight, str(maxNodes), str(int(round(np.average(nodesUsedList)))), str(agreed), str(total),
-                "%.3f" % ((100.0 * agreed) / total), "%.3f" % (totalNodesForFirstFind / total)]
-        outFile.write("\t".join(outv) + "\n")
-        outFile.flush()
-        sys.stdout.write("\n\n")
-        runNum += 1
-else:
-    startTime = datetime.datetime.now()
-    weight = " "
-    agreed, total, nodesUsedList = runOnePositionSet()
-positionLogFile.close()
-outFile.close()
+    positionLogFile.close()
+    outFile.close()
+
+
+if __name__ == "__main__":
+    main()
