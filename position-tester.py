@@ -57,13 +57,14 @@ class PvItem:
 
 
 class BestMoveChange:
-    def __init__(self, nodes: int, move: str, score: int):
+    def __init__(self, nodes: int, time: float, move: str, score: int):
         self.nodes = nodes
         self.mv = move
         self.score = score
+        self.time = time
 
     def __str__(self):
-        return f"[{self.nodes}, {self.mv}, {self.score}]"
+        return f"[{self.nodes}, {self.mv}, {self.time}, {self.score}]"
 
 
 class LogOutput:
@@ -245,7 +246,8 @@ def fillAgreeList(board, info, iccf_moves, moveChangeList: [BestMoveChange]):
             eval3 = info.get("score").relative.cp
         else:
             eval3 = "9998"
-        toAppend: BestMoveChange = BestMoveChange(nodes2, engineMove, eval3)
+        time = info['time']
+        toAppend: BestMoveChange = BestMoveChange(nodes2, time, engineMove, eval3)
         moveChangeList.append(toAppend)
     # prevAgreement is really used, it is just in next loop iteration
     # todo agree and nodesUsed needed in parent now that I have a list?
