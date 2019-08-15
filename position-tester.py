@@ -427,10 +427,10 @@ probability (P), count MvChange, Mv Change List']
             # stop division by 0 when debugging and non are right.
             outv2 = ["\r" + str(right) + "/" + str(total2),
                      " Agree:" + percentAgree + "%",
-                     "Expected end of this run: " + expectedEndTime,
-                     "average nodes per move: " + "%.0f" % (np.average(nodesUsed)),
+                     "End of set: " + expectedEndTime,
+                     "avg npm: " + "%.0f" % (np.average(nodesUsed)),
                      # now I am adding maxNodes*2 for never found so I divide by total
-                     "average nodes first found of agreed: " + "%.0f" % (totalNodesForFirstFind / total2)
+
                      ]
             sys.stderr.write(", ".join(outv2))
             sys.stderr.flush()
