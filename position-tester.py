@@ -353,8 +353,8 @@ def validateEngineParameters(engine):
 
 # put headers in the log and on screen.
 def sendPositionSetHeaders(startTime):
-    positionLogFile.write(
-        f"# engine:{enginePath},\n# params:{params.__str__()},\n# epd:{epdPath},\n# start Time {str(startTime)}\n")
+    positionLogFile.write(f"# engine:{enginePath},n# {limitString},\n# params:{params.__str__()},\n")
+    positionLogFile.write(f"# epd:{epdPath},\n# {logFileName},\n# start Time {str(startTime)}\n")
     # writeLog(params)
     # writeLog(str(startTime)) tt
 
@@ -372,8 +372,8 @@ def sendPositionSetHeaders(startTime):
 def runOnePositionSet():
     logLines = ['# agree, iccf_moves, nodesUsed, position_id, toPlay, \
 pieces Count, weight, mpv 1 move, mpv 1 eval, \
-mpv 2 move, mpv 2 eval,  mpv 3 move ; mpv3 eval \
-probability (P), count of agree List, agree List']
+mpv 2 move, mpv 2 eval,  mpv 3 move , mpv3 eval,\
+probability (P), count MvChange, Mv Change List']
     global totalNodesForFirstFind
     totalNodesForFirstFind = 0
     engine = chess.engine.SimpleEngine.popen_uci(enginePath)
