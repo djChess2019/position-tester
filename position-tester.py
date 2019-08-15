@@ -358,7 +358,7 @@ def sendPositionSetHeaders(startTime):
     # writeLog(params)
     # writeLog(str(startTime)) tt
 
-    sys.stderr.write(f" {enginePath}\n  nodes:{maxNodes}\n  weight:{weight}\n ")
+    sys.stderr.write(f" {enginePath}\n  nodes:{limitString}\n  weight:{weight}\n ")
     sys.stderr.write(json.dumps(params, separators=(', ', ": "), indent=5))
     sys.stderr.write("\n")
     sys.stderr.write(
