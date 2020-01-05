@@ -1,0 +1,9 @@
+{
+  "EPD": "C:\\code\\position-tester\\positionSets\\LateMovement1k.txt",
+  "enginePath": "C:\\lc0\\lc0.exe",
+  "weights_path": "C:\\lc0\\nets\\",
+  "logFile": "C:\\lc0\\logs.txt",
+  "Threads": 2,
+  "nodes": 1,
+  "minibatchsize" : 32
+}

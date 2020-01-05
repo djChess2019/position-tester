@@ -153,7 +153,7 @@ if "lc0" in enginePath:
         params["SmartPruningFactor"] = 1
     if "Threads" not in params:
         params["Threads"] = 1
-    params["backend"] = "cudnn-fp16"
+    # params["backend"] = "cudnn-fp16"
 
 else:
     isLeela = False
@@ -211,7 +211,7 @@ if isLeela:
             weights.append(network)
     networkFile.close()
     # add in the extra fixed params
-    params["VerboseMoveStats"] = True
+    params["VerboseMoveStats"] = False
     params["HistoryFill"] = "always"
 
 
@@ -423,7 +423,7 @@ probability (P), count MvChange, Mv Change List']
             problems = len(positionList)
             timePerProblem = elapsedTime / total2
             expectedEndTime = ((timePerProblem * problems) + startTime).isoformat(' ', 'minutes')
-            percentAgree = str(round(right / total2 * 100, 2))
+            percentAgree = "{:5.2f}".format(round(right / total2 * 100, 2)) # str(round(right / total2 * 100, 2))
             # stop division by 0 when debugging and non are right.
             outv2 = ["\r" + str(right) + "/" + str(total2),
                      " Agree:" + percentAgree + "%",
