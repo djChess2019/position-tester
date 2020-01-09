@@ -384,6 +384,7 @@ probability (P), count MvChange, Mv Change List']
     total2 = 0
     nodesUsed = []
 
+    positionResults = {}
     for positionLine in positionList:
 
         # if positionLine == positionList[5]: #helpful to debug just 5 lines of position set
@@ -403,6 +404,8 @@ probability (P), count MvChange, Mv Change List']
         # except IndexError:
         #     print(f"error in runOnePosition read position from screen output")
         #     continue
+
+        positionResults[positionLine] = positionResult.agree
 
         if positionResult.agree == 1:
             right += 1
@@ -438,7 +441,7 @@ probability (P), count MvChange, Mv Change List']
     engine.quit()
     writeLog(logLines)  # make sure the last set is written
     sys.stderr.write("\n")
-    return right, total2, nodesUsed
+    return right, total2, nodesUsed, positionResults
 
 
 # ###############################################################################
@@ -446,6 +449,8 @@ probability (P), count MvChange, Mv Change List']
 # ###############################################################################
 def main():
     readPositions()
+    positionResults = {
+    0: "empty"}
     if isLeela:
         runTot = len(weights)  # the weights list is made about line 120 in global . why?
         runNum = 1
@@ -461,7 +466,7 @@ def main():
             sys.stdout.write("\nRun " + str(runNum) + " of " + str(runTot) + ": " + weight + ", " + appendix + "\n")
             sys.stdout.flush()
             # run the test for this network
-            agreed, total, nodesUsedList = runOnePositionSet()
+            agreed, total, nodesUsedList, positionResults[weight] = runOnePositionSet()
             # stop error for testing when 0 agree
             if agreed == 0:
                 agreed = 1
@@ -475,10 +480,22 @@ def main():
     else:
         startTime = datetime.datetime.now()
         weight = " "
-        agreed, total, nodesUsedList = runOnePositionSet()
+        agreed, total, nodesUsedList, positionResults[weight] = runOnePositionSet()
     positionLogFile.close()
     outFile.close()
 
+    if isLeela:
+        if len(weights) >= 2:
+        # loop and compare positionResults
+            for positionLine in positionList:
+                #determine baseline result on first weight
+                weightbase = weights[0]
+                for weight in weights:
+                    if weight != weightbase:
+                        baseresult = positionResults[weightbase][positionLine]
+                        weightresult = positionResults[weight][positionLine]
+                        if baseresult != weightresult:
+                            sys.stdout.write("\n" + positionLine + " w:"+weightbase+" " + str(bool(baseresult)) + " w: "+ weight + " " + str(bool(weightresult)) )
 
 if __name__ == "__main__":
     main()

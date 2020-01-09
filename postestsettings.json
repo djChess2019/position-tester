@@ -4,6 +4,6 @@
   "weights_path": "C:\\lc0\\nets\\",
   "logFile": "C:\\lc0\\logs.txt",
   "Threads": 2,
-  "nodes": 1,
+  "nodes": 0,
   "minibatchsize" : 32
 }
