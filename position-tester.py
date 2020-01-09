@@ -486,6 +486,8 @@ def main():
 
     if isLeela:
         if len(weights) >= 2:
+            learnedcounter = 0
+            unlearnedcounter = 0
         # loop and compare positionResults
             for positionLine in positionList:
                 #determine baseline result on first weight
@@ -495,7 +497,11 @@ def main():
                         baseresult = positionResults[weightbase][positionLine]
                         weightresult = positionResults[weight][positionLine]
                         if baseresult != weightresult:
+                            if baseresult:
+                                unlearnedcounter+=1
+                            else:
+                                learnedcounter+=1
                             sys.stdout.write("\n" + positionLine + " w:"+weightbase+" " + str(bool(baseresult)) + " w: "+ weight + " " + str(bool(weightresult)) )
-
+            sys.stdout.write("\n positions learned:"+ str(learnedcounter) + " positions unlearned:"+ str(unlearnedcounter))
 if __name__ == "__main__":
     main()
