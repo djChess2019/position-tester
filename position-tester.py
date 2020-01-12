@@ -153,7 +153,7 @@ if "lc0" in enginePath:
         params["SmartPruningFactor"] = 1
     if "Threads" not in params:
         params["Threads"] = 1
-    params["backend"] = "cudnn-fp16"
+    # params["backend"] = "cudnn-fp16"
 
 else:
     isLeela = False
@@ -211,7 +211,7 @@ if isLeela:
             weights.append(network)
     networkFile.close()
     # add in the extra fixed params
-    params["VerboseMoveStats"] = True
+    params["VerboseMoveStats"] = False
     params["HistoryFill"] = "always"
 
 
@@ -384,6 +384,7 @@ probability (P), count MvChange, Mv Change List']
     total2 = 0
     nodesUsed = []
 
+    positionResults = {}
     for positionLine in positionList:
 
         # if positionLine == positionList[5]: #helpful to debug just 5 lines of position set
@@ -404,6 +405,8 @@ probability (P), count MvChange, Mv Change List']
         #     print(f"error in runOnePosition read position from screen output")
         #     continue
 
+        positionResults[positionLine] = positionResult.agree
+
         if positionResult.agree == 1:
             right += 1
         if len(positionResult.bestMoveChangeList) > 0:  # count of finds
@@ -423,7 +426,7 @@ probability (P), count MvChange, Mv Change List']
             problems = len(positionList)
             timePerProblem = elapsedTime / total2
             expectedEndTime = ((timePerProblem * problems) + startTime).isoformat(' ', 'minutes')
-            percentAgree = str(round(right / total2 * 100, 2))
+            percentAgree = "{:5.2f}".format(round(right / total2 * 100, 2)) # str(round(right / total2 * 100, 2))
             # stop division by 0 when debugging and non are right.
             outv2 = ["\r" + str(right) + "/" + str(total2),
                      " Agree:" + percentAgree + "%",
@@ -438,7 +441,7 @@ probability (P), count MvChange, Mv Change List']
     engine.quit()
     writeLog(logLines)  # make sure the last set is written
     sys.stderr.write("\n")
-    return right, total2, nodesUsed
+    return right, total2, nodesUsed, positionResults
 
 
 # ###############################################################################
@@ -446,6 +449,8 @@ probability (P), count MvChange, Mv Change List']
 # ###############################################################################
 def main():
     readPositions()
+    positionResults = {
+    0: "empty"}
     if isLeela:
         runTot = len(weights)  # the weights list is made about line 120 in global . why?
         runNum = 1
@@ -461,7 +466,7 @@ def main():
             sys.stdout.write("\nRun " + str(runNum) + " of " + str(runTot) + ": " + weight + ", " + appendix + "\n")
             sys.stdout.flush()
             # run the test for this network
-            agreed, total, nodesUsedList = runOnePositionSet()
+            agreed, total, nodesUsedList, positionResults[weight] = runOnePositionSet()
             # stop error for testing when 0 agree
             if agreed == 0:
                 agreed = 1
@@ -475,10 +480,28 @@ def main():
     else:
         startTime = datetime.datetime.now()
         weight = " "
-        agreed, total, nodesUsedList = runOnePositionSet()
+        agreed, total, nodesUsedList, positionResults[weight] = runOnePositionSet()
     positionLogFile.close()
     outFile.close()
 
-
+    if isLeela:
+        if len(weights) >= 2:
+            # loop and compare positionResults
+            #determine baseline result on first weight
+            weightbase = weights[0]
+            for weight in weights:
+                learnedcounter = 0
+                unlearnedcounter = 0
+                if weight != weightbase:
+                    for positionLine in positionList:
+                        baseresult = positionResults[weightbase][positionLine]
+                        weightresult = positionResults[weight][positionLine]
+                        if baseresult != weightresult:
+                            if baseresult:
+                                unlearnedcounter+=1
+                            else:
+                                learnedcounter+=1
+                            sys.stdout.write("\n" + positionLine + " w:"+weightbase+" " + str(bool(baseresult)) + " w: "+ weight + " " + str(bool(weightresult)) )
+                sys.stdout.write("\n weight" + weight + " vs " + weightbase + " learned:"+ str(learnedcounter) + " unlearned:"+ str(unlearnedcounter))
 if __name__ == "__main__":
     main()
